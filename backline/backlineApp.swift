@@ -10,6 +10,8 @@ import FirebaseCore
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     var authManager: AuthenticationManager!
+    var listingManager: ListingManager!
+    var messagesManager: MessagesManager!
 
     func application(
         _ application: UIApplication,
@@ -17,6 +19,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         FirebaseApp.configure()
         authManager = AuthenticationManager()
+        listingManager = ListingManager()
+        messagesManager = MessagesManager()
 
         return true
     }
@@ -31,6 +35,8 @@ struct backlineApp: App {
         WindowGroup {
             ContentView()
                 .environment(delegate.authManager!)
+                .environment(delegate.listingManager!)
+                .environment(delegate.messagesManager!)
         }
     }
 }

@@ -10,50 +10,29 @@ import SwiftUI
 struct ContentView: View {
 
     @Environment(AuthenticationManager.self) private var authManager
-    @State private var showLogin = false
+    @State private var isCheckingAuth = true
 
     var body: some View {
         Group {
-            if authManager.isAuthenticated {
+            if isCheckingAuth {
+                // Loading screen
+                VStack {
+                    Spacer()
+                    Text("backline")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    Spacer()
+                }
+            } else if authManager.isAuthenticated {
                 MainTabView()
-            } else if showLogin {
-                LoginView()
             } else {
-                welcomeView
+                LoginView()
             }
         }
-    }
-
-    private var welcomeView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            Image("myLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 120, height: 120)
-                .clipShape(Rectangle())
-
-            Text("Welcome to Backline.")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Button {
-                showLogin = true
-            } label: {
-                Text("Get Started")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.accentColor)
-                    .foregroundStyle(.white)
-                    .clipShape(Rectangle())
-            }
-            .padding(.horizontal, 40)
-
-            Spacer()
+        .task {
+            // Give Firebase a moment to restore auth state
+            try? await Task.sleep(for: .seconds(1))
+            isCheckingAuth = false
         }
-        .padding()
     }
 }
-
