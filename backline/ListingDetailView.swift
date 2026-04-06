@@ -12,12 +12,20 @@ struct ListingDetailView: View {
 
     @Environment(AuthenticationManager.self) private var authManager
     @Environment(MessagesManager.self) private var messagesManager
+    @Environment(ListingManager.self) private var listingManager
+    @Environment(\.dismiss) private var dismiss
 
     let listing: Listing
 
     @State private var navigateToChat = false
     @State private var activeChatConversationId: String?
     @State private var activeChatConversation: Conversation?
+    @State private var showDeleteConfirmation = false
+    @State private var showEditListing = false
+
+    private var isOwnListing: Bool {
+        listing.sellerUID == authManager.currentUser?.uid
+    }
 
     var body: some View {
         ScrollView {
@@ -56,10 +64,33 @@ struct ListingDetailView: View {
                         .font(.title2)
                         .fontWeight(.bold)
 
-                    Text("$\(listing.price, specifier: "%.0f")")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.accentColor)
+                    if let price = listing.price {
+                        Text("$\(price, specifier: "%.0f")")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.accentColor)
+                    }
+
+                    if let rentPrice = listing.rentPrice, !rentPrice.isEmpty {
+                        Text(rentPrice)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(Color.accentColor)
+                    }
+
+                    // Listing type tags
+                    HStack(spacing: 6) {
+                        ForEach(listing.listingTypes, id: \.self) { type in
+                            Text(type.rawValue)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color.accentColor.opacity(0.15))
+                                .foregroundStyle(Color.accentColor)
+                                .clipShape(Capsule())
+                        }
+                    }
 
                     Divider()
 
@@ -81,7 +112,7 @@ struct ListingDetailView: View {
                         .foregroundStyle(.secondary)
 
                     // Message Seller button
-                    if listing.sellerUID != authManager.currentUser?.uid {
+                    if !isOwnListing {
                         Button {
                             Task { await messageSellerTapped() }
                         } label: {
@@ -92,6 +123,42 @@ struct ListingDetailView: View {
                                 .background(Color.accentColor)
                                 .foregroundStyle(.white)
                                 .clipShape(Rectangle())
+                        }
+                        .padding(.top, 8)
+                    }
+
+                    // Edit / Delete for own listings
+                    if isOwnListing {
+                        VStack(spacing: 10) {
+                            Button {
+                                showEditListing = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "pencil")
+                                    Text("Edit Listing")
+                                }
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.accentColor)
+                                .foregroundStyle(.white)
+                                .clipShape(Rectangle())
+                            }
+
+                            Button {
+                                showDeleteConfirmation = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "trash")
+                                    Text("Delete Listing")
+                                }
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.red.opacity(0.1))
+                                .foregroundStyle(.red)
+                                .clipShape(Rectangle())
+                            }
                         }
                         .padding(.top, 8)
                     }
@@ -107,6 +174,20 @@ struct ListingDetailView: View {
                let conv = activeChatConversation {
                 ChatView(conversationId: convId, conversation: conv)
             }
+        }
+        .sheet(isPresented: $showEditListing) {
+            EditListingView(listing: listing)
+        }
+        .alert("Delete Listing", isPresented: $showDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    await listingManager.deleteListing(id: listing.id)
+                    dismiss()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this listing? This cannot be undone.")
         }
     }
 
@@ -154,7 +235,8 @@ struct ListingDetailView: View {
                     participantUsernames: [uid: username, listing.sellerUID: listing.sellerUsername],
                     lastMessage: "",
                     lastMessageAt: Date(),
-                    lastMessageSenderUID: ""
+                    lastMessageSenderUID: "",
+                    lastReadAt: [:]
                 )
             activeChatConversationId = convId
             activeChatConversation = conversation

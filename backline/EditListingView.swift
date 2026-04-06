@@ -1,37 +1,45 @@
 //
-//  CreateListingView.swift
+//  EditListingView.swift
 //  backline
 //
-//  Created by Khadija Aslam on 3/16/26.
+//  Created by Khadija Aslam on 4/6/26.
 //
 
 import SwiftUI
-import PhotosUI
-import FirebaseAuth
 
-struct CreateListingView: View {
+struct EditListingView: View {
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(AuthenticationManager.self) private var authManager
     @Environment(ListingManager.self) private var listingManager
+
+    let listing: Listing
 
     // MARK: - Form State
 
-    @State private var title = ""
-    @State private var description = ""
-    @State private var priceText = ""
-    @State private var rentPriceText = ""
-    @State private var category: ListingCategory = .guitars
-    @State private var condition: ListingCondition = .good
-    @State private var location = ""
-    @State private var forSale = true
-    @State private var forRent = false
-    @State private var forTrade = false
+    @State private var title: String
+    @State private var description: String
+    @State private var priceText: String
+    @State private var rentPriceText: String
+    @State private var category: ListingCategory
+    @State private var condition: ListingCondition
+    @State private var location: String
+    @State private var forSale: Bool
+    @State private var forRent: Bool
+    @State private var forTrade: Bool
 
-    // MARK: - Photo State
-
-    @State private var selectedPhotos: [PhotosPickerItem] = []
-    @State private var loadedImages: [UIImage] = []
+    init(listing: Listing) {
+        self.listing = listing
+        _title = State(initialValue: listing.title)
+        _description = State(initialValue: listing.description)
+        _priceText = State(initialValue: listing.price.map { String(format: "%.0f", $0) } ?? "")
+        _rentPriceText = State(initialValue: listing.rentPrice ?? "")
+        _category = State(initialValue: listing.category)
+        _condition = State(initialValue: listing.condition)
+        _location = State(initialValue: listing.location)
+        _forSale = State(initialValue: listing.listingTypes.contains(.sell))
+        _forRent = State(initialValue: listing.listingTypes.contains(.rent))
+        _forTrade = State(initialValue: listing.listingTypes.contains(.trade))
+    }
 
     // MARK: - Validation
 
@@ -47,7 +55,6 @@ struct CreateListingView: View {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
         && !description.trimmingCharacters(in: .whitespaces).isEmpty
         && !location.trimmingCharacters(in: .whitespaces).isEmpty
-        && !loadedImages.isEmpty
         && !selectedTypes.isEmpty
         && (!forSale || (Double(priceText) ?? -1) > 0)
         && (!forRent || !rentPriceText.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -59,11 +66,6 @@ struct CreateListingView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-
-                    // Photos
-                    photosSection
-
-                    // Fields
                     VStack(spacing: 16) {
                         TextField("Title", text: $title)
                             .padding()
@@ -89,7 +91,6 @@ struct CreateListingView: View {
                             }
                         }
 
-                        // Sale price (shown when Sell is toggled)
                         if forSale {
                             HStack {
                                 Text("$")
@@ -102,7 +103,6 @@ struct CreateListingView: View {
                             .clipShape(Rectangle())
                         }
 
-                        // Rent price (shown when Rent is toggled)
                         if forRent {
                             TextField("Rent Price (e.g. $20/hr, $50/day)", text: $rentPriceText)
                                 .padding()
@@ -156,16 +156,16 @@ struct CreateListingView: View {
                             .padding(.horizontal)
                     }
 
-                    // Submit
+                    // Save
                     Button {
-                        Task { await submitListing() }
+                        Task { await saveChanges() }
                     } label: {
                         Group {
                             if listingManager.isLoading {
                                 ProgressView()
                                     .tint(.white)
                             } else {
-                                Text("Post Listing")
+                                Text("Save Changes")
                             }
                         }
                         .fontWeight(.semibold)
@@ -180,7 +180,7 @@ struct CreateListingView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("List an Item")
+            .navigationTitle("Edit Listing")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -189,64 +189,7 @@ struct CreateListingView: View {
                     }
                 }
             }
-            .onChange(of: selectedPhotos) { _, newItems in
-                Task { await loadImages(from: newItems) }
-            }
         }
-    }
-
-    // MARK: - Photos Section
-
-    private var photosSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Photos")
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .padding(.horizontal)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    PhotosPicker(
-                        selection: $selectedPhotos,
-                        maxSelectionCount: 10,
-                        matching: .images
-                    ) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "plus")
-                                .font(.title2)
-                            Text("\(loadedImages.count)/10")
-                                .font(.caption2)
-                        }
-                        .foregroundStyle(Color.accentColor)
-                        .frame(width: 80, height: 80)
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
-                    }
-
-                    ForEach(loadedImages.indices, id: \.self) { index in
-                        Image(uiImage: loadedImages[index])
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 80, height: 80)
-                            .clipShape(Rectangle())
-                    }
-                }
-                .padding(.horizontal)
-            }
-        }
-    }
-
-    // MARK: - Image Loading
-
-    private func loadImages(from items: [PhotosPickerItem]) async {
-        var images: [UIImage] = []
-        for item in items {
-            if let data = try? await item.loadTransferable(type: Data.self),
-               let uiImage = UIImage(data: data) {
-                images.append(uiImage)
-            }
-        }
-        loadedImages = images
     }
 
     // MARK: - Listing Type Toggle
@@ -266,16 +209,14 @@ struct CreateListingView: View {
         }
     }
 
-    // MARK: - Submit
+    // MARK: - Save
 
-    private func submitListing() async {
-        guard let uid = authManager.currentUser?.uid,
-              let username = authManager.username else { return }
-
+    private func saveChanges() async {
         let price = forSale ? Double(priceText) : nil
         let rentPrice = forRent ? rentPriceText.trimmingCharacters(in: .whitespaces) : nil
 
-        await listingManager.createListing(
+        await listingManager.updateListing(
+            id: listing.id,
             title: title.trimmingCharacters(in: .whitespaces),
             description: description.trimmingCharacters(in: .whitespaces),
             price: price,
@@ -283,10 +224,7 @@ struct CreateListingView: View {
             listingTypes: selectedTypes,
             category: category,
             condition: condition,
-            location: location.trimmingCharacters(in: .whitespaces),
-            images: loadedImages,
-            sellerUID: uid,
-            sellerUsername: username
+            location: location.trimmingCharacters(in: .whitespaces)
         )
 
         if listingManager.errorMessage == nil {

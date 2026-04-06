@@ -107,6 +107,8 @@ struct MarketplaceView: View {
             }
         }
     }
+    
+    //TODO: add a map view in the top right corner. This will show listings on a map but not exact addresses for privacy.
 
     // MARK: - Category Chip
 
@@ -155,15 +157,36 @@ struct MarketplaceView: View {
                 .clipped()
 
             // Info
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(listing.title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .lineLimit(1)
 
-                Text("$\(listing.price, specifier: "%.0f")")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.accentColor)
+                // Price info
+                if let price = listing.price {
+                    Text("$\(price, specifier: "%.0f")")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.accentColor)
+                }
+                if let rentPrice = listing.rentPrice, !rentPrice.isEmpty {
+                    Text(rentPrice)
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                }
+
+                // Listing type tags
+                HStack(spacing: 4) {
+                    ForEach(listing.listingTypes, id: \.self) { type in
+                        Text(type.rawValue)
+                            .font(.system(size: 9, weight: .semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.15))
+                            .foregroundStyle(Color.accentColor)
+                            .clipShape(Capsule())
+                    }
+                }
 
                 Text(listing.location)
                     .font(.caption)
@@ -191,7 +214,8 @@ struct MarketplaceView: View {
                                     participantUsernames: [uid: username, listing.sellerUID: listing.sellerUsername],
                                     lastMessage: "",
                                     lastMessageAt: Date(),
-                                    lastMessageSenderUID: ""
+                                    lastMessageSenderUID: "",
+                                    lastReadAt: [:]
                                 )
                             activeChatConversationId = convId
                             activeChatConversation = conversation

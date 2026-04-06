@@ -21,10 +21,13 @@ struct ContentView: View {
                     Text("backline")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .foregroundStyle(Color.accentColor)
                     Spacer()
                 }
-            } else if authManager.isAuthenticated {
+            } else if authManager.isAuthenticated && authManager.isEmailVerified {
                 MainTabView()
+            } else if authManager.isAuthenticated && !authManager.isEmailVerified {
+                EmailVerificationView()
             } else {
                 LoginView()
             }

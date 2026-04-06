@@ -16,6 +16,15 @@ struct Conversation: Identifiable, Codable {
     var lastMessage: String
     var lastMessageAt: Date
     var lastMessageSenderUID: String
+    var lastReadAt: [String: Date]
+
+    func isUnread(forUID uid: String) -> Bool {
+        // Unread if: there's a message, the last message wasn't sent by us,
+        // and we either have no lastReadAt or it's before lastMessageAt
+        guard !lastMessage.isEmpty, lastMessageSenderUID != uid else { return false }
+        guard let readDate = lastReadAt[uid] else { return true }
+        return lastMessageAt > readDate
+    }
 }
 
 // MARK: - Message

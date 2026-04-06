@@ -40,6 +40,34 @@ enum ServiceCategory: String, CaseIterable, Codable {
     case liveSound = "Live Sound"
 }
 
+// MARK: - ISO Category
+
+enum ISOCategory: String, CaseIterable, Codable {
+    case gig = "Gig"
+    case bandmate = "Bandmate"
+    case service = "Service"
+}
+
+// MARK: - ISO Post
+
+struct ISOPost: Identifiable, Codable {
+    var id: String
+    var category: ISOCategory
+    var roleNeeded: String
+    var location: String
+    var timeframe: Date
+    var budget: String
+    var description: String
+    var posterUID: String
+    var posterUsername: String
+    var createdAt: Date
+
+    var isExpired: Bool {
+        let expirationDate = Calendar.current.date(byAdding: .day, value: 30, to: createdAt) ?? createdAt
+        return Date() > expirationDate
+    }
+}
+
 // MARK: - Service Listing
 
 struct ServiceListing: Identifiable, Codable {
@@ -54,13 +82,23 @@ struct ServiceListing: Identifiable, Codable {
     var createdAt: Date
 }
 
+// MARK: - Listing Type
+
+enum ListingType: String, CaseIterable, Codable {
+    case sell = "Sell"
+    case rent = "Rent"
+    case trade = "Trade"
+}
+
 // MARK: - Listing
 
 struct Listing: Identifiable, Codable {
     var id: String
     var title: String
     var description: String
-    var price: Double
+    var price: Double?
+    var rentPrice: String?
+    var listingTypes: [ListingType]
     var category: ListingCategory
     var condition: ListingCondition
     var location: String

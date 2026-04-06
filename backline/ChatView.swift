@@ -73,6 +73,9 @@ struct ChatView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             messagesManager.listenToMessages(conversationId: conversationId)
+            if let uid = authManager.currentUser?.uid {
+                await messagesManager.markAsRead(conversationId: conversationId, uid: uid)
+            }
         }
         .onDisappear {
             messagesManager.stopListeningToMessages()

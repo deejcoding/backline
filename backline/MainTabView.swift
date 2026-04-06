@@ -6,76 +6,53 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct MainTabView: View {
 
-    @State private var selectedTab: Tab = .home
+    @Environment(AuthenticationManager.self) private var authManager
+    @Environment(MessagesManager.self) private var messagesManager
+
+    @State private var selectedTab = 0
     @State private var showCreateMenu = false
     @State private var showCreateListing = false
     @State private var showCreateService = false
-
-    enum Tab {
-        case home
-        case marketplace
-        case gigs
-        case messages
-        case profile
-    }
+    @State private var showCreateISO = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            VStack(spacing: 0) {
-                // Content area
-                Group {
-                    switch selectedTab {
-                    case .home:
-                        HomeView()
-                    case .marketplace:
-                        MarketplaceView()
-                    case .gigs:
-                        GigsView()
-                    case .messages:
-                        ConversationsView()
-                    case .profile:
-                        ProfileView()
+            TabView(selection: $selectedTab) {
+                Tab("Home", systemImage: "house", value: 0) {
+                    HomeView()
+                }
+                Tab("Marketplace", systemImage: "guitars", value: 1) {
+                    MarketplaceView()
+                }
+                Tab("Create", systemImage: "plus.circle.fill", value: 2) {
+                    Color.clear
+                }
+                Tab("Services", systemImage: "person.2", value: 3) {
+                    GigsView()
+                }
+                Tab("Messages", systemImage: "bubble.left.and.bubble.right", value: 4) {
+                    ConversationsView()
+                }
+                .badge(messagesManager.unreadCount(forUID: authManager.currentUser?.uid ?? ""))
+                Tab("Profile", systemImage: "person", value: 5) {
+                    ProfileView()
+                }
+            }
+            .onChange(of: selectedTab) { _, newValue in
+                if newValue == 2 {
+                    selectedTab = 1 // bounce back so Create tab doesn't stay selected
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        showCreateMenu = true
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                Divider()
-
-                // Custom tab bar
-                HStack {
-                    tabButton("Home", tab: .home)
-                    tabButton("Marketplace", tab: .marketplace)
-
-                    // Center "+" button
-                    Button {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            showCreateMenu.toggle()
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.callout.weight(.bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 40, height: 40)
-                            .background(Color.accentColor)
-                            .clipShape(Circle())
-                    }
-
-                    tabButton("Gigs", tab: .gigs)
-                    tabButton("Messages", tab: .messages)
-                    tabButton("Profile", tab: .profile)
-                }
-                .padding(.top, 10)
-                .padding(.bottom, 6)
-                .frame(maxWidth: .infinity)
-                .background(.bar)
             }
 
             // Popup menu
             if showCreateMenu {
-                // Dismiss backdrop
                 Color.black.opacity(0.001)
                     .ignoresSafeArea()
                     .onTapGesture {
@@ -90,6 +67,18 @@ struct MainTabView: View {
                         showCreateListing = true
                     } label: {
                         Label("List an Item", systemImage: "tag")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                    }
+
+                    Divider()
+
+                    Button {
+                        showCreateMenu = false
+                        showCreateISO = true
+                    } label: {
+                        Label("Post ISO", systemImage: "megaphone")
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
@@ -124,17 +113,8 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $showCreateService) {
             CreateServiceListingView()
         }
-    }
-
-    private func tabButton(_ title: String, tab: Tab) -> some View {
-        Button {
-            selectedTab = tab
-        } label: {
-            Text(title)
-                .font(.caption)
-                .fontWeight(selectedTab == tab ? .bold : .regular)
-                .foregroundStyle(selectedTab == tab ? Color.accentColor : .secondary)
-                .frame(maxWidth: .infinity)
+        .fullScreenCover(isPresented: $showCreateISO) {
+            CreateISOPostView()
         }
     }
 }

@@ -54,15 +54,28 @@ struct ConversationsView: View {
     // MARK: - Conversation Row
 
     private func conversationRow(_ conversation: Conversation) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(otherUsername(in: conversation))
-                .font(.subheadline)
-                .fontWeight(.semibold)
+        let unread = conversation.isUnread(forUID: authManager.currentUser?.uid ?? "")
 
-            Text(conversation.lastMessage)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+        return HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(otherUsername(in: conversation))
+                    .font(.subheadline)
+                    .fontWeight(unread ? .bold : .semibold)
+
+                Text(conversation.lastMessage)
+                    .font(.caption)
+                    .foregroundStyle(unread ? .primary : .secondary)
+                    .fontWeight(unread ? .medium : .regular)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            if unread {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 10, height: 10)
+            }
         }
         .padding(.vertical, 4)
     }

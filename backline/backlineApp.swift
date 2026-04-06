@@ -7,8 +7,9 @@
 
 import SwiftUI
 import FirebaseCore
+import UserNotifications
 
-class AppDelegate: NSObject, UIApplicationDelegate {
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var authManager: AuthenticationManager!
     var listingManager: ListingManager!
     var messagesManager: MessagesManager!
@@ -22,7 +23,41 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         listingManager = ListingManager()
         messagesManager = MessagesManager()
 
+        // Push notifications
+        UNUserNotificationCenter.current().delegate = self
+        requestNotificationPermission(application)
+
         return true
+    }
+
+    // MARK: - Notification Permission
+
+    private func requestNotificationPermission(_ application: UIApplication) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+            if granted {
+                DispatchQueue.main.async {
+                    application.registerForRemoteNotifications()
+                }
+            }
+        }
+    }
+
+    // MARK: - APNs Token
+    // Once you add FirebaseMessaging to your target's frameworks, uncomment the
+    // Messaging lines below to enable FCM token registration.
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // Messaging.messaging().apnsToken = deviceToken
+    }
+
+    // MARK: - Foreground Notifications
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .badge, .sound])
     }
 }
 
@@ -37,6 +72,7 @@ struct backlineApp: App {
                 .environment(delegate.authManager!)
                 .environment(delegate.listingManager!)
                 .environment(delegate.messagesManager!)
+                .preferredColorScheme(.dark)
         }
     }
 }

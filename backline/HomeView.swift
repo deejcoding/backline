@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct HomeView: View {
+    
+    //TODO: show listings and services nearby and based on previous searches
+    
     var body: some View {
         NavigationStack {
             VStack {

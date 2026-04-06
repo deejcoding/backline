@@ -19,9 +19,22 @@ final class AuthenticationManager {
     var username: String?
     var profilePhotoURL: String?
     var bio: String?
+    var instagramHandle: String?
+    var musicProjects: [MusicProject] = []
+    var genres: [String] = []
     var isAuthenticated: Bool { currentUser != nil }
+    var isEmailVerified: Bool { currentUser?.isEmailVerified ?? false }
     var errorMessage: String?
     var isLoading = false
+
+    var profileScore: Int {
+        var score = 0
+        if let url = profilePhotoURL, !url.isEmpty { score += 10 }
+        if let bio, !bio.isEmpty { score += 10 }
+        score += musicProjects.count * 15
+        if let instagramHandle, !instagramHandle.isEmpty { score += 10 }
+        return score
+    }
 
     private let db = Firestore.firestore()
 
@@ -54,6 +67,9 @@ final class AuthenticationManager {
                 self?.username = nil
                 self?.profilePhotoURL = nil
                 self?.bio = nil
+                self?.instagramHandle = nil
+                self?.musicProjects = []
+                self?.genres = []
             }
         }
     }
@@ -66,10 +82,36 @@ final class AuthenticationManager {
                 self.username = data?["username"] as? String
                 self.profilePhotoURL = data?["profilePhotoURL"] as? String
                 self.bio = data?["bio"] as? String
+                self.instagramHandle = data?["instagramHandle"] as? String
+
+                if let projectDicts = data?["musicProjects"] as? [[String: String]] {
+                    self.musicProjects = projectDicts.compactMap { dict in
+                        guard let id = dict["id"],
+                              let title = dict["title"],
+                              let url = dict["url"],
+                              let platformRaw = dict["platform"],
+                              let platform = MusicPlatform(rawValue: platformRaw)
+                        else { return nil }
+                        return MusicProject(id: id, title: title, url: url, platform: platform)
+                    }
+                } else {
+                    self.musicProjects = []
+                }
+
+                self.genres = data?["genres"] as? [String] ?? []
             } catch {
                 // Profile fetch failed silently
             }
         }
+    }
+
+    // MARK: - FCM Token
+
+    func updateFCMToken(_ token: String) {
+        guard let uid = currentUser?.uid else { return }
+        db.collection("users").document(uid).updateData([
+            "fcmToken": token
+        ])
     }
 
     // MARK: - Profile Updates
@@ -95,6 +137,57 @@ final class AuthenticationManager {
             let urlString = url.absoluteString
             try await db.collection("users").document(uid).updateData(["profilePhotoURL": urlString])
             self.profilePhotoURL = urlString
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func updateProfile(bio: String, instagramHandle: String, musicProjects: [MusicProject], genres: [String]) async {
+        guard let uid = currentUser?.uid else { return }
+        let trimmedHandle = instagramHandle.trimmingCharacters(in: .whitespaces)
+        let encodedProjects: [[String: String]] = musicProjects.map { project in
+            [
+                "id": project.id,
+                "title": project.title,
+                "url": project.url,
+                "platform": project.platform.rawValue
+            ]
+        }
+        do {
+            var data: [String: Any] = [
+                "bio": bio,
+                "musicProjects": encodedProjects,
+                "genres": genres
+            ]
+            if trimmedHandle.isEmpty {
+                data["instagramHandle"] = FieldValue.delete()
+            } else {
+                data["instagramHandle"] = trimmedHandle
+            }
+            try await db.collection("users").document(uid).updateData(data)
+            self.bio = bio
+            self.instagramHandle = trimmedHandle.isEmpty ? nil : trimmedHandle
+            self.musicProjects = musicProjects
+            self.genres = genres
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Email Verification
+
+    func sendVerificationEmail() async {
+        do {
+            try await currentUser?.sendEmailVerification()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func reloadUser() async {
+        do {
+            try await currentUser?.reload()
+            currentUser = Auth.auth().currentUser
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -161,6 +254,9 @@ final class AuthenticationManager {
             ])
             self.username = trimmedUsername
             currentUser = result.user
+
+            // Send verification email
+            try await result.user.sendEmailVerification()
         } catch {
             print("[AuthManager] Sign up error: \(error)")
             errorMessage = error.localizedDescription

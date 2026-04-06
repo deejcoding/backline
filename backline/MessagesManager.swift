@@ -46,16 +46,45 @@ final class MessagesManager {
                           let lastMessageSenderUID = data["lastMessageSenderUID"] as? String
                     else { return nil }
                     let lastMessageAt = (data["lastMessageAt"] as? Timestamp)?.dateValue() ?? Date()
+
+                    var lastReadAt: [String: Date] = [:]
+                    if let readMap = data["lastReadAt"] as? [String: Timestamp] {
+                        for (uid, timestamp) in readMap {
+                            lastReadAt[uid] = timestamp.dateValue()
+                        }
+                    }
+
                     return Conversation(
                         id: doc.documentID,
                         participants: participants,
                         participantUsernames: participantUsernames,
                         lastMessage: lastMessage,
                         lastMessageAt: lastMessageAt,
-                        lastMessageSenderUID: lastMessageSenderUID
+                        lastMessageSenderUID: lastMessageSenderUID,
+                        lastReadAt: lastReadAt
                     )
                 }
             }
+    }
+
+    // MARK: - Unread Count
+
+    func unreadCount(forUID uid: String) -> Int {
+        conversations.filter { $0.isUnread(forUID: uid) }.count
+    }
+
+    // MARK: - Mark as Read
+
+    func markAsRead(conversationId: String, uid: String) async {
+        do {
+            try await db.collection("conversations")
+                .document(conversationId)
+                .updateData([
+                    "lastReadAt.\(uid)": FieldValue.serverTimestamp()
+                ])
+        } catch {
+            // Silently fail
+        }
     }
 
     // MARK: - Listen to Messages
@@ -122,7 +151,11 @@ final class MessagesManager {
                 ],
                 "lastMessage": "",
                 "lastMessageAt": FieldValue.serverTimestamp(),
-                "lastMessageSenderUID": ""
+                "lastMessageSenderUID": "",
+                "lastReadAt": [
+                    currentUID: FieldValue.serverTimestamp(),
+                    otherUID: FieldValue.serverTimestamp()
+                ]
             ]
             try await conversationRef.setData(data)
             return conversationRef.documentID

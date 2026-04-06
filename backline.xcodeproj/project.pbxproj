@@ -17,9 +17,22 @@
 		8C70883D2F68853500ECFC02 /* backline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = backline.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		8CE1D9BF2F8434130090E3AC /* Exceptions for "backline" folder in "backline" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 8C70883C2F68853500ECFC02 /* backline */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8C70883F2F68853500ECFC02 /* backline */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8CE1D9BF2F8434130090E3AC /* Exceptions for "backline" folder in "backline" target */,
+			);
 			path = backline;
 			sourceTree = "<group>";
 		};
@@ -282,6 +295,7 @@
 				DEVELOPMENT_TEAM = ZJAYTS598H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = backline/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -314,6 +328,7 @@
 				DEVELOPMENT_TEAM = ZJAYTS598H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = backline/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
