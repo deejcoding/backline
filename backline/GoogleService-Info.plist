@@ -2,8 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleIdentifier</key>
-	<string></string>
+	<key>CLIENT_ID</key>
+	<string>1039412382496-ndtmkptdt9uprg53fvcnffbk4bg60soa.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.1039412382496-ndtmkptdt9uprg53fvcnffbk4bg60soa</string>
 	<key>API_KEY</key>
 	<string>AIzaSyAWTH5Tx-CNfBI11QpQOZ4BBu0W22sRZF0</string>
 	<key>GCM_SENDER_ID</key>
@@ -11,22 +13,22 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>deej.backline</string>
+	<string>com.deej.backline</string>
 	<key>PROJECT_ID</key>
 	<string>backline-7e769</string>
 	<key>STORAGE_BUCKET</key>
 	<string>backline-7e769.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
-	<false/>
+	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
-	<false/>
+	<false></false>
 	<key>IS_APPINVITE_ENABLED</key>
-	<true/>
+	<true></true>
 	<key>IS_GCM_ENABLED</key>
-	<true/>
+	<true></true>
 	<key>IS_SIGNIN_ENABLED</key>
-	<true/>
+	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:1039412382496:ios:36745692d96e037c672545</string>
+	<string>1:1039412382496:ios:e1f6c162f0e54275672545</string>
 </dict>
 </plist>

@@ -12,27 +12,34 @@ struct ServicesFeedView: View {
 
     @Environment(ListingManager.self) private var listingManager
     @Environment(AuthenticationManager.self) private var authManager
-    @Environment(MessagesManager.self) private var messagesManager
 
     @Binding var searchText: String
-    @State private var selectedCategory: ServiceCategory?
-    @State private var navigateToChat = false
-    @State private var activeChatConversationId: String?
-    @State private var activeChatConversation: Conversation?
+    @State private var selectedRole: String?
 
-    private var filteredServices: [ServiceListing] {
-        var results = listingManager.serviceListings
+    private static let allRoles = [
+        "Guitar", "Vocals", "Keyboardist", "Synth", "Woodwinds",
+        "Strings", "Brass", "Bass", "Drums", "Producing",
+        "Rapper", "DJ", "Live Sound Engineering", "Mixing Engineer",
+        "Mastering Engineer", "Recording Engineer", "Graphic Design"
+    ]
 
-        if let category = selectedCategory {
-            results = results.filter { $0.category == category }
+    private var filteredUsers: [UserProfile] {
+        var results = listingManager.allUsers
+
+        // Exclude current user
+        if let currentUID = authManager.currentUser?.uid {
+            results = results.filter { $0.id != currentUID }
+        }
+
+        if let role = selectedRole {
+            results = results.filter { $0.roles.contains(role) }
         }
 
         if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
             let query = searchText.lowercased()
             results = results.filter {
-                $0.title.lowercased().contains(query)
-                || $0.description.lowercased().contains(query)
-                || $0.sellerUsername.lowercased().contains(query)
+                $0.username.lowercased().contains(query)
+                || $0.roles.contains(where: { $0.lowercased().contains(query) })
             }
         }
 
@@ -41,36 +48,45 @@ struct ServicesFeedView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Category filter
+            // Role filter
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    categoryChip("All", category: nil)
-                    ForEach(ServiceCategory.allCases, id: \.self) { cat in
-                        categoryChip(cat.rawValue, category: cat)
+                    roleChip("All", role: nil)
+                    ForEach(Self.allRoles, id: \.self) { role in
+                        roleChip(role, role: role)
                     }
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 8)
             }
 
-            if filteredServices.isEmpty {
+            if filteredUsers.isEmpty {
                 Spacer()
-                Image(systemName: "music.mic")
-                    .font(.system(size: 48))
+                Image(systemName: "person.2")
+                    .font(.title2)
                     .foregroundStyle(.secondary)
-                Text("No services yet")
-                    .font(.title3)
-                    .fontWeight(.semibold)
+                Text("No artists found")
+                    .font(.caption)
+                    .fontWeight(.medium)
                     .padding(.top, 4)
-                Text("Services posted by musicians will appear here.")
-                    .font(.subheadline)
+                Text("Musicians on backline will appear here.")
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(filteredServices) { service in
-                            serviceCard(service)
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
+                        ],
+                        spacing: 12
+                    ) {
+                        ForEach(filteredUsers) { user in
+                            NavigationLink(value: ProfileDestination(uid: user.id, username: user.username)) {
+                                userCard(user)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal)
@@ -79,120 +95,82 @@ struct ServicesFeedView: View {
                 }
             }
         }
-        .navigationDestination(isPresented: $navigateToChat) {
-            if let convId = activeChatConversationId,
-               let conv = activeChatConversation {
-                ChatView(conversationId: convId, conversation: conv)
-            }
+        .task {
+            await listingManager.fetchAllUsers()
         }
     }
 
-    // MARK: - Category Chip
+    // MARK: - Role Chip
 
-    private func categoryChip(_ title: String, category: ServiceCategory?) -> some View {
+    private func roleChip(_ title: String, role: String?) -> some View {
         Button {
-            selectedCategory = category
+            selectedRole = role
         } label: {
             Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(selectedCategory == category ? Color.accentColor : Color(.systemGray5))
-                .foregroundStyle(selectedCategory == category ? .white : .primary)
+                .font(.caption2)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(selectedRole == role ? .white : .clear)
+                .foregroundStyle(selectedRole == role ? .black : .primary)
+                .overlay(
+                    Capsule()
+                        .stroke(selectedRole == role ? .white : Color(.systemGray3), lineWidth: 0.5)
+                )
                 .clipShape(Capsule())
         }
     }
 
-    // MARK: - Service Card
+    // MARK: - User Card
 
-    private func serviceCard(_ service: ServiceListing) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(service.title)
-                        .font(.headline)
-                    Text("@\(service.sellerUsername)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+    private func userCard(_ user: UserProfile) -> some View {
+        VStack(spacing: 8) {
+            // Profile photo
+            if let urlString = user.profilePhotoURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    Circle()
+                        .fill(Color(.systemGray5))
                 }
-                Spacer()
-                Text(service.category.rawValue)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.accentColor.opacity(0.15))
-                    .foregroundStyle(Color.accentColor)
-                    .clipShape(Capsule())
+                .frame(width: 60, height: 60)
+                .clipShape(Circle())
+            } else {
+                Image(systemName: "person.circle.fill")
+                    .font(.system(size: 60))
+                    .foregroundStyle(Color(.systemGray4))
             }
 
-            Text(service.description)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
+            // Username
+            Text("@\(user.username)")
+                .font(.caption)
+                .fontWeight(.medium)
+                .lineLimit(1)
 
-            HStack {
-                Text(service.rate)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.accentColor)
-
-                Spacer()
-
-                if let portfolio = service.portfolioURL, !portfolio.isEmpty {
-                    Link(destination: URL(string: portfolio) ?? URL(string: "https://example.com")!) {
-                        Label("Portfolio", systemImage: "link")
-                            .font(.caption)
+            // Roles
+            if !user.roles.isEmpty {
+                FlowLayout(spacing: 4) {
+                    ForEach(user.roles.prefix(3), id: \.self) { role in
+                        Text(role)
+                            .font(.system(size: 9))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color(.systemGray3), lineWidth: 0.5)
+                            )
+                            .clipShape(Capsule())
                     }
                 }
             }
-
-            if service.sellerUID != authManager.currentUser?.uid {
-                Button {
-                    Task { await messageSellerTapped(service) }
-                } label: {
-                    Text("Message")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(Rectangle())
-                }
-            }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    // MARK: - Message Seller
-
-    private func messageSellerTapped(_ service: ServiceListing) async {
-        guard let uid = authManager.currentUser?.uid,
-              let username = authManager.username else { return }
-
-        if let convId = await messagesManager.startConversation(
-            currentUID: uid,
-            currentUsername: username,
-            otherUID: service.sellerUID,
-            otherUsername: service.sellerUsername
-        ) {
-            let conversation = messagesManager.conversations.first(where: { $0.id == convId })
-                ?? Conversation(
-                    id: convId,
-                    participants: [uid, service.sellerUID],
-                    participantUsernames: [uid: username, service.sellerUID: service.sellerUsername],
-                    lastMessage: "",
-                    lastMessageAt: Date(),
-                    lastMessageSenderUID: "",
-                    lastReadAt: [:]
-                )
-            activeChatConversationId = convId
-            activeChatConversation = conversation
-            navigateToChat = true
-        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(.systemGray3), lineWidth: 0.5)
+        )
     }
 }
