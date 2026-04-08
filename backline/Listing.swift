@@ -7,6 +7,13 @@
 
 import Foundation
 
+// MARK: - Profile Destination (for navigation)
+
+struct ProfileDestination: Hashable {
+    let uid: String
+    let username: String
+}
+
 // MARK: - Category
 
 enum ListingCategory: String, CaseIterable, Codable {
@@ -50,7 +57,7 @@ enum ISOCategory: String, CaseIterable, Codable {
 
 // MARK: - ISO Post
 
-struct ISOPost: Identifiable, Codable {
+struct ISOPost: Identifiable, Codable, Hashable {
     var id: String
     var category: ISOCategory
     var roleNeeded: String
@@ -70,7 +77,7 @@ struct ISOPost: Identifiable, Codable {
 
 // MARK: - Service Listing
 
-struct ServiceListing: Identifiable, Codable {
+struct ServiceListing: Identifiable, Codable, Hashable {
     var id: String
     var title: String
     var category: ServiceCategory
@@ -92,7 +99,7 @@ enum ListingType: String, CaseIterable, Codable {
 
 // MARK: - Listing
 
-struct Listing: Identifiable, Codable {
+struct Listing: Identifiable, Codable, Hashable {
     var id: String
     var title: String
     var description: String

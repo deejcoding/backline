@@ -24,10 +24,12 @@ struct ContentView: View {
                         .foregroundStyle(Color.accentColor)
                     Spacer()
                 }
-            } else if authManager.isAuthenticated && authManager.isEmailVerified {
+            } else if authManager.isAuthenticated && authManager.needsUsername {
+                UsernamePromptView()
+            } else if authManager.isAuthenticated && authManager.needsOnboarding {
+                OnboardingView()
+            } else if authManager.isAuthenticated {
                 MainTabView()
-            } else if authManager.isAuthenticated && !authManager.isEmailVerified {
-                EmailVerificationView()
             } else {
                 LoginView()
             }

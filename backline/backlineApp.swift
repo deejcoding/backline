@@ -8,6 +8,9 @@
 import SwiftUI
 import FirebaseCore
 import UserNotifications
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var authManager: AuthenticationManager!
@@ -40,6 +43,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 }
             }
         }
+    }
+
+    // MARK: - URL Handling (Google Sign-In)
+
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        #if canImport(GoogleSignIn)
+        return GIDSignIn.sharedInstance.handle(url)
+        #else
+        return false
+        #endif
     }
 
     // MARK: - APNs Token

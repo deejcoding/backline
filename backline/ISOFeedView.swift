@@ -57,21 +57,24 @@ struct ISOFeedView: View {
             if filteredPosts.isEmpty {
                 Spacer()
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 48))
+                    .font(.title2)
                     .foregroundStyle(.secondary)
                 Text("No posts yet")
-                    .font(.title3)
-                    .fontWeight(.semibold)
+                    .font(.caption)
+                    .fontWeight(.medium)
                     .padding(.top, 4)
                 Text("ISO posts from musicians will appear here.")
-                    .font(.subheadline)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(filteredPosts) { post in
-                            isoPostCard(post)
+                            NavigationLink(value: post) {
+                                isoPostCard(post)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal)
@@ -86,6 +89,16 @@ struct ISOFeedView: View {
                 ChatView(conversationId: convId, conversation: conv)
             }
         }
+        .task {
+            let uids = Array(Set(listingManager.isoPosts.map(\.posterUID)))
+            await listingManager.fetchProfilePhotos(for: uids)
+        }
+        .onChange(of: listingManager.isoPosts.count) {
+            Task {
+                let uids = Array(Set(listingManager.isoPosts.map(\.posterUID)))
+                await listingManager.fetchProfilePhotos(for: uids)
+            }
+        }
     }
 
     // MARK: - Category Chip
@@ -95,12 +108,15 @@ struct ISOFeedView: View {
             selectedCategory = category
         } label: {
             Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(selectedCategory == category ? Color.accentColor : Color(.systemGray5))
-                .foregroundStyle(selectedCategory == category ? .white : .primary)
+                .font(.caption2)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(selectedCategory == category ? .white : .clear)
+                .foregroundStyle(selectedCategory == category ? .black : .primary)
+                .overlay(
+                    Capsule()
+                        .stroke(selectedCategory == category ? .white : .white.opacity(0.2), lineWidth: 0.5)
+                )
                 .clipShape(Capsule())
         }
     }
@@ -108,44 +124,63 @@ struct ISOFeedView: View {
     // MARK: - ISO Post Card
 
     private func isoPostCard(_ post: ISOPost) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             // Role + category badge
             HStack {
                 Text(post.roleNeeded)
-                    .font(.headline)
+                    .font(.caption)
+                    .fontWeight(.semibold)
                 Spacer()
                 Text(post.category.rawValue)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.accentColor.opacity(0.15))
-                    .foregroundStyle(Color.accentColor)
-                    .clipShape(Capsule())
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .overlay(
+                        Capsule()
+                            .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                    )
             }
 
-            Text("@\(post.posterUsername)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 5) {
+                if let photoURL = listingManager.profilePhotos[post.posterUID],
+                   let url = URL(string: photoURL) {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        Circle()
+                            .fill(Color(.systemGray4))
+                    }
+                    .frame(width: 16, height: 16)
+                    .clipShape(Circle())
+                } else {
+                    Image(systemName: "person.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Color(.systemGray3))
+                }
+                Text("@\(post.posterUsername)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
 
             Text(post.description)
-                .font(.subheadline)
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
 
             // Location, timeframe, budget
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Label(post.location, systemImage: "mappin")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                 Label(post.timeframe.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text(post.budget)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.accentColor)
+                    .font(.caption)
+                    .fontWeight(.medium)
             }
 
             // Message button
@@ -154,19 +189,22 @@ struct ISOFeedView: View {
                     Task { await messagePosterTapped(post) }
                 } label: {
                     Text("Message")
-                        .font(.caption)
+                        .font(.caption2)
                         .fontWeight(.medium)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(Rectangle())
+                        .padding(.vertical, 6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
                 }
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+        )
     }
 
     // MARK: - Message Poster

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AuthenticationServices
 
 struct LoginView: View {
 
@@ -24,24 +25,30 @@ struct LoginView: View {
                     .frame(height: 60)
 
                 Text("Backline")
-                    .font(.largeTitle)
+                    .font(.title2)
                     .fontWeight(.bold)
 
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     TextField("Email", text: $email)
+                        .font(.caption)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
+                        .padding(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
 
                     SecureField("Password", text: $password)
+                        .font(.caption)
                         .textContentType(.password)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
+                        .padding(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
                 }
                 .padding(.horizontal)
 
@@ -66,12 +73,13 @@ struct LoginView: View {
                             Text("Sign In")
                         }
                     }
-                    .fontWeight(.semibold)
+                    .font(.caption)
+                    .fontWeight(.medium)
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.accentColor)
-                    .foregroundStyle(.white)
-                    .clipShape(Rectangle())
+                    .padding(.vertical, 10)
+                    .background(.white)
+                    .foregroundStyle(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .disabled(authManager.isLoading || email.isEmpty || password.isEmpty)
                 .padding(.horizontal)
@@ -82,6 +90,64 @@ struct LoginView: View {
                 }
                 .font(.footnote)
 
+                // Divider
+                HStack {
+                    Rectangle()
+                        .frame(height: 0.5)
+                        .foregroundStyle(Color(.systemGray3))
+                    Text("or")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Rectangle()
+                        .frame(height: 0.5)
+                        .foregroundStyle(Color(.systemGray3))
+                }
+                .padding(.horizontal)
+
+                // Sign in with Apple
+                SignInWithAppleButton(.signIn) { request in
+                    let appleRequest = authManager.prepareAppleSignIn()
+                    request.requestedScopes = appleRequest.requestedScopes
+                    request.nonce = appleRequest.nonce
+                } onCompletion: { result in
+                    switch result {
+                    case .success(let authorization):
+                        Task {
+                            await authManager.signInWithApple(authorization: authorization)
+                        }
+                    case .failure(let error):
+                        if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
+                            authManager.errorMessage = error.localizedDescription
+                        }
+                    }
+                }
+                .signInWithAppleButtonStyle(.white)
+                .frame(height: 40)
+                .padding(.horizontal)
+
+                // Sign in with Google
+                Button {
+                    Task {
+                        await authManager.signInWithGoogle()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "g.circle.fill")
+                            .font(.caption)
+                        Text("Sign in with Google")
+                    }
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                    )
+                }
+                .disabled(authManager.isLoading)
+                .padding(.horizontal)
+
                 Spacer()
                     .frame(height: 40)
 
@@ -91,9 +157,9 @@ struct LoginView: View {
                     Button("Sign Up") {
                         showSignUp = true
                     }
-                    .fontWeight(.semibold)
+                    .fontWeight(.medium)
                 }
-                .font(.subheadline)
+                .font(.caption)
                 .padding(.bottom)
             }
         }

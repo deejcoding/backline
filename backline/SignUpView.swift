@@ -35,37 +35,49 @@ struct SignUpView: View {
                     .frame(height: 60)
 
                 Text("Create Account")
-                    .font(.largeTitle)
+                    .font(.title2)
                     .fontWeight(.bold)
 
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     TextField("Username", text: $username)
+                        .font(.caption)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
+                        .padding(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
 
                     TextField("Email", text: $email)
+                        .font(.caption)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
+                        .padding(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
 
                     SecureField("Password", text: $password)
+                        .font(.caption)
                         .textContentType(.newPassword)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
+                        .padding(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
 
                     SecureField("Confirm Password", text: $confirmPassword)
+                        .font(.caption)
                         .textContentType(.newPassword)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
+                        .padding(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
                 }
                 .padding(.horizontal)
 
@@ -99,17 +111,18 @@ struct SignUpView: View {
                     Group {
                         if authManager.isLoading {
                             ProgressView()
-                                .tint(.white)
+                                .tint(.black)
                         } else {
                             Text("Sign Up")
                         }
                     }
-                    .fontWeight(.semibold)
+                    .font(.caption)
+                    .fontWeight(.medium)
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.accentColor)
-                    .foregroundStyle(.white)
-                    .clipShape(Rectangle())
+                    .padding(.vertical, 10)
+                    .background(.white)
+                    .foregroundStyle(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .disabled(authManager.isLoading || !formIsValid)
                 .padding(.horizontal)

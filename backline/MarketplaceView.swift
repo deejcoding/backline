@@ -57,14 +57,14 @@ struct MarketplaceView: View {
                 if filteredListings.isEmpty {
                     Spacer()
                     Image(systemName: "guitars")
-                        .font(.system(size: 48))
+                        .font(.title2)
                         .foregroundStyle(.secondary)
                     Text("No listings yet")
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                        .font(.caption)
+                        .fontWeight(.medium)
                         .padding(.top, 4)
                     Text("Listings you and others post will appear here.")
-                        .font(.subheadline)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                     Spacer()
                 } else {
@@ -105,6 +105,15 @@ struct MarketplaceView: View {
                     ChatView(conversationId: convId, conversation: conv)
                 }
             }
+            .navigationDestination(for: ProfileDestination.self) { dest in
+                PublicProfileView(uid: dest.uid, username: dest.username)
+            }
+            .navigationDestination(for: ISOPost.self) { post in
+                ISOPostDetailView(post: post)
+            }
+            .navigationDestination(for: ServiceListing.self) { service in
+                ServiceListingDetailView(service: service)
+            }
         }
     }
     
@@ -117,12 +126,15 @@ struct MarketplaceView: View {
             selectedCategory = category
         } label: {
             Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(selectedCategory == category ? Color.accentColor : Color(.systemGray5))
-                .foregroundStyle(selectedCategory == category ? .white : .primary)
+                .font(.caption2)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(selectedCategory == category ? .white : .clear)
+                .foregroundStyle(selectedCategory == category ? .black : .primary)
+                .overlay(
+                    Capsule()
+                        .stroke(selectedCategory == category ? .white : .white.opacity(0.2), lineWidth: 0.5)
+                )
                 .clipShape(Capsule())
         }
     }
@@ -130,10 +142,10 @@ struct MarketplaceView: View {
     // MARK: - Listing Card
 
     private func listingCard(_ listing: Listing) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             // Photo
             Color.clear
-                .frame(height: 140)
+                .frame(height: 120)
                 .overlay {
                     if let firstURL = listing.photoURLs.first, let url = URL(string: firstURL) {
                         AsyncImage(url: url) { phase in
@@ -157,39 +169,39 @@ struct MarketplaceView: View {
                 .clipped()
 
             // Info
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(listing.title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(.caption)
+                    .fontWeight(.medium)
                     .lineLimit(1)
 
                 // Price info
                 if let price = listing.price {
                     Text("$\(price, specifier: "%.0f")")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.accentColor)
+                        .font(.caption)
                 }
                 if let rentPrice = listing.rentPrice, !rentPrice.isEmpty {
                     Text(rentPrice)
-                        .font(.caption)
-                        .foregroundStyle(Color.accentColor)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
 
                 // Listing type tags
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     ForEach(listing.listingTypes, id: \.self) { type in
                         Text(type.rawValue)
-                            .font(.system(size: 9, weight: .semibold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.15))
-                            .foregroundStyle(Color.accentColor)
-                            .clipShape(Capsule())
+                            .font(.system(size: 8))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .overlay(
+                                Capsule()
+                                    .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                            )
                     }
                 }
 
                 Text(listing.location)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -224,13 +236,14 @@ struct MarketplaceView: View {
                     }
                 } label: {
                     Text("Message Seller")
-                        .font(.caption)
+                        .font(.caption2)
                         .fontWeight(.medium)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(Rectangle())
+                        .padding(.vertical, 5)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
                 }
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
@@ -238,7 +251,10 @@ struct MarketplaceView: View {
                 Spacer().frame(height: 4)
             }
         }
-        .background(Color(.systemGray6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 

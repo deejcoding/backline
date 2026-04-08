@@ -10,6 +10,14 @@ import FirebaseFirestore
 import FirebaseStorage
 import UIKit
 
+struct UserProfile: Identifiable, Hashable {
+    let id: String  // uid
+    let username: String
+    var profilePhotoURL: String?
+    var roles: [String]
+    var bio: String?
+}
+
 @Observable
 final class ListingManager {
 
@@ -17,8 +25,59 @@ final class ListingManager {
 
     var isLoading = false
     var errorMessage: String?
+    var profilePhotos: [String: String] = [:]  // uid -> profilePhotoURL
+    var allUsers: [UserProfile] = []
 
     private let db = Firestore.firestore()
+
+    // MARK: - Fetch All Users
+
+    func fetchAllUsers() async {
+        do {
+            let snapshot = try await db.collection("users").getDocuments()
+            allUsers = snapshot.documents.compactMap { doc in
+                let data = doc.data()
+                guard let username = data["username"] as? String, !username.isEmpty else { return nil }
+                let photoURL = data["profilePhotoURL"] as? String
+                let roles = data["roles"] as? [String] ?? []
+                let bio = data["bio"] as? String
+                return UserProfile(
+                    id: doc.documentID,
+                    username: username,
+                    profilePhotoURL: photoURL,
+                    roles: roles,
+                    bio: bio
+                )
+            }
+        } catch {
+            // Silently fail
+        }
+    }
+
+    // MARK: - Profile Photo Cache
+
+    func fetchProfilePhotos(for uids: [String]) async {
+        let uncachedUIDs = uids.filter { profilePhotos[$0] == nil }
+        guard !uncachedUIDs.isEmpty else { return }
+
+        // Firestore 'in' queries support max 30 items
+        for batch in stride(from: 0, to: uncachedUIDs.count, by: 30) {
+            let end = min(batch + 30, uncachedUIDs.count)
+            let batchUIDs = Array(uncachedUIDs[batch..<end])
+            do {
+                let snapshot = try await db.collection("users")
+                    .whereField(FieldPath.documentID(), in: batchUIDs)
+                    .getDocuments()
+                for doc in snapshot.documents {
+                    if let url = doc.data()["profilePhotoURL"] as? String, !url.isEmpty {
+                        profilePhotos[doc.documentID] = url
+                    }
+                }
+            } catch {
+                // Silently fail
+            }
+        }
+    }
 
     // MARK: - Photo Upload
 

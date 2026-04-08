@@ -59,9 +59,11 @@ struct ISOPostDetailView: View {
                             .clipShape(Capsule())
                     }
 
-                    Text("@\(post.posterUsername)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    NavigationLink(value: ProfileDestination(uid: post.posterUID, username: post.posterUsername)) {
+                        Text("@\(post.posterUsername)")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.accentColor)
+                    }
                 }
 
                 Divider()

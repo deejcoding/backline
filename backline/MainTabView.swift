@@ -14,6 +14,7 @@ struct MainTabView: View {
     @Environment(MessagesManager.self) private var messagesManager
 
     @State private var selectedTab = 0
+    @State private var previousTab = 0
     @State private var showCreateMenu = false
     @State private var showCreateListing = false
     @State private var showCreateService = false
@@ -25,26 +26,22 @@ struct MainTabView: View {
                 Tab("Home", systemImage: "house", value: 0) {
                     HomeView()
                 }
-                Tab("Marketplace", systemImage: "guitars", value: 1) {
-                    MarketplaceView()
+                Tab("Services", systemImage: "person.2", value: 1) {
+                    GigsView()
                 }
                 Tab("Create", systemImage: "plus.circle.fill", value: 2) {
                     Color.clear
                 }
-                Tab("Services", systemImage: "person.2", value: 3) {
-                    GigsView()
+                Tab("Marketplace", systemImage: "guitars", value: 3) {
+                    MarketplaceView()
                 }
-                Tab("Messages", systemImage: "bubble.left.and.bubble.right", value: 4) {
-                    ConversationsView()
-                }
-                .badge(messagesManager.unreadCount(forUID: authManager.currentUser?.uid ?? ""))
-                Tab("Profile", systemImage: "person", value: 5) {
+                Tab("Profile", systemImage: "person", value: 4) {
                     ProfileView()
                 }
             }
-            .onChange(of: selectedTab) { _, newValue in
+            .onChange(of: selectedTab) { oldValue, newValue in
                 if newValue == 2 {
-                    selectedTab = 1 // bounce back so Create tab doesn't stay selected
+                    selectedTab = oldValue
                     withAnimation(.easeOut(duration: 0.15)) {
                         showCreateMenu = true
                     }

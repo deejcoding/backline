@@ -20,7 +20,7 @@ struct GigsView: View {
                 // Segmented control
                 Picker("", selection: $selectedSegment) {
                     Text("ISOs").tag(0)
-                    Text("Explore Artists").tag(1)
+                    Text("Meet Artists").tag(1)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -36,18 +36,30 @@ struct GigsView: View {
             .navigationTitle("Services")
             .searchable(
                 text: $searchText,
-                prompt: selectedSegment == 0 ? "Search posts" : "Search services"
+                prompt: selectedSegment == 0 ? "Search posts" : "Search artists"
             )
+            .navigationDestination(for: ISOPost.self) { post in
+                ISOPostDetailView(post: post)
+            }
+            .navigationDestination(for: ServiceListing.self) { service in
+                ServiceListingDetailView(service: service)
+            }
+            .navigationDestination(for: ProfileDestination.self) { dest in
+                PublicProfileView(uid: dest.uid, username: dest.username)
+            }
+            .navigationDestination(for: Listing.self) { listing in
+                ListingDetailView(listing: listing)
+            }
             .task {
                 async let iso: () = listingManager.fetchIsoPosts()
-                async let services: () = listingManager.fetchServiceListings()
-                _ = await (iso, services)
+                async let users: () = listingManager.fetchAllUsers()
+                _ = await (iso, users)
             }
             .refreshable {
                 if selectedSegment == 0 {
                     await listingManager.fetchIsoPosts()
                 } else {
-                    await listingManager.fetchServiceListings()
+                    await listingManager.fetchAllUsers()
                 }
             }
         }

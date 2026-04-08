@@ -114,7 +114,7 @@ struct ServicesFeedView: View {
                 .foregroundStyle(selectedRole == role ? .black : .primary)
                 .overlay(
                     Capsule()
-                        .stroke(selectedRole == role ? .white : Color(.systemGray3), lineWidth: 0.5)
+                        .stroke(selectedRole == role ? .white : .white.opacity(0.2), lineWidth: 0.5)
                 )
                 .clipShape(Capsule())
         }
@@ -148,18 +148,25 @@ struct ServicesFeedView: View {
                 .fontWeight(.medium)
                 .lineLimit(1)
 
+            // Bio
+            if let bio = user.bio, !bio.isEmpty {
+                Text(bio)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            }
+
             // Roles
             if !user.roles.isEmpty {
                 FlowLayout(spacing: 4) {
                     ForEach(user.roles.prefix(3), id: \.self) { role in
                         Text(role)
                             .font(.system(size: 9))
+                            .foregroundStyle(Color.accentColor)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color(.systemGray3), lineWidth: 0.5)
-                            )
+                            .background(Color.accentColor.opacity(0.15))
                             .clipShape(Capsule())
                     }
                 }
@@ -170,7 +177,7 @@ struct ServicesFeedView: View {
         .padding(.horizontal, 8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(.systemGray3), lineWidth: 0.5)
+                .stroke(.white.opacity(0.2), lineWidth: 0.5)
         )
     }
 }

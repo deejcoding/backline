@@ -16,13 +16,13 @@ struct HomeView: View {
             VStack {
                 Spacer()
                 Image(systemName: "house.fill")
-                    .font(.system(size: 48))
+                    .font(.title2)
                     .foregroundStyle(.secondary)
                 Text("For You")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(.caption)
+                    .fontWeight(.medium)
                 Text("Your personalized feed is coming soon.")
-                    .font(.subheadline)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
             }

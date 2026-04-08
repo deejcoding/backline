@@ -13,6 +13,7 @@ struct ProfileView: View {
 
     @Environment(AuthenticationManager.self) private var authManager
     @Environment(ListingManager.self) private var listingManager
+    @Environment(MessagesManager.self) private var messagesManager
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showEditProfile = false
     @State private var showDeleteListingConfirmation = false
@@ -31,56 +32,19 @@ struct ProfileView: View {
             ScrollView {
                 VStack(spacing: 20) {
 
-                    // Header: photo + username + score
+                    // Header: photo + username + bio + instagram
                     profileHeaderSection
 
-                    // Bio
-                    if let bio = authManager.bio, !bio.isEmpty {
-                        Text(bio)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
-
                     // Genres
-                    if !authManager.genres.isEmpty {
-                        FlowLayout(spacing: 8) {
-                            ForEach(authManager.genres, id: \.self) { genre in
-                                Text("#\(genre)")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(Color.accentColor.opacity(0.12))
-                                    .foregroundStyle(Color.accentColor)
-                                    .clipShape(Capsule())
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
+                    genresSection
 
-                    // Instagram
-                    if let handle = authManager.instagramHandle, !handle.isEmpty {
-                        Link(destination: URL(string: "https://instagram.com/\(handle)") ?? URL(string: "https://instagram.com")!) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "camera.fill")
-                                    .font(.caption)
-                                Text("@\(handle)")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                            }
-                            .foregroundStyle(.secondary)
-                        }
-                    }
+                    // Roles
+                    rolesSection
 
-                    // Music Projects
+                    // Featured Projects
                     musicProjectsSection
                     
                     //TODO: add visual projects section
-
-                    // My Listings
-                    myListingsSection
 
                     // My Services
                     myServicesSection
@@ -88,36 +52,48 @@ struct ProfileView: View {
                     // My ISO Posts
                     myISOPostsSection
 
-                    // Actions
-                    VStack(spacing: 12) {
-                        Button("Edit Profile") {
-                            showEditProfile = true
-                        }
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(Rectangle())
-                        .padding(.horizontal)
+                    // My Listings
+                    myListingsSection
 
-                        Button("Sign Out") {
-                            authManager.signOut()
-                        }
-                        .fontWeight(.semibold)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.red.opacity(0.1))
-                        .foregroundStyle(.red)
-                        .clipShape(Rectangle())
-                        .padding(.horizontal)
-                    }
-                    .padding(.top, 8)
-                    .padding(.bottom, 40)
+                    // Actions
+                    actionsSection
                 }
                 .padding(.vertical)
             }
             .navigationTitle("Profile")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        ConversationsView()
+                    } label: {
+                        let count = messagesManager.unreadCount(forUID: authManager.currentUser?.uid ?? "")
+                        Image(systemName: count > 0 ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
+                            .overlay(alignment: .topTrailing) {
+                                if count > 0 {
+                                    Text("\(count)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .padding(3)
+                                        .background(Color.red)
+                                        .clipShape(Circle())
+                                        .offset(x: 8, y: -8)
+                                }
+                            }
+                    }
+                }
+            }
+            .navigationDestination(for: ProfileDestination.self) { dest in
+                PublicProfileView(uid: dest.uid, username: dest.username)
+            }
+            .navigationDestination(for: Listing.self) { listing in
+                ListingDetailView(listing: listing)
+            }
+            .navigationDestination(for: ServiceListing.self) { service in
+                ServiceListingDetailView(service: service)
+            }
+            .navigationDestination(for: ISOPost.self) { post in
+                ISOPostDetailView(post: post)
+            }
             .task {
                 if let uid = authManager.currentUser?.uid {
                     await listingManager.fetchUserListings(uid: uid)
@@ -174,7 +150,7 @@ struct ProfileView: View {
     // MARK: - Profile Header
 
     private var profileHeaderSection: some View {
-        VStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 16) {
             // Profile photo
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
                 if let urlString = authManager.profilePhotoURL,
@@ -186,11 +162,11 @@ struct ProfileView: View {
                     } placeholder: {
                         ProgressView()
                     }
-                    .frame(width: 100, height: 100)
+                    .frame(width: 80, height: 80)
                     .clipShape(Circle())
                 } else {
                     Image(systemName: "person.circle.fill")
-                        .font(.system(size: 100))
+                        .font(.system(size: 80))
                         .foregroundStyle(Color.accentColor)
                 }
             }
@@ -205,54 +181,141 @@ struct ProfileView: View {
                 }
             }
 
-            // Username
-            if let username = authManager.username {
-                Text("@\(username)")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+            // Username, bio, instagram
+            VStack(alignment: .leading, spacing: 4) {
+                if let username = authManager.username {
+                    Text("@\(username)")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+
+                if let bio = authManager.bio, !bio.isEmpty {
+                    Text(bio)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+
+                if let handle = authManager.instagramHandle, !handle.isEmpty {
+                    Link(destination: URL(string: "https://instagram.com/\(handle)") ?? URL(string: "https://instagram.com")!) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 9))
+                            Text("@\(handle)")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                }
             }
 
-            // Profile Score
-            HStack(spacing: 4) {
-                Image(systemName: "star.fill")
-                    .font(.caption)
-                    .foregroundStyle(Color.accentColor)
-                Text("\(authManager.profileScore) pts")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.accentColor)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.accentColor.opacity(0.12))
-            .clipShape(Capsule())
+            Spacer()
         }
+        .padding(.horizontal)
         .padding(.top, 8)
     }
 
-    // MARK: - Music Projects
+    // MARK: - Genres
+
+    @ViewBuilder
+    private var genresSection: some View {
+        if !authManager.genres.isEmpty {
+            FlowLayout(spacing: 6) {
+                ForEach(authManager.genres, id: \.self) { genre in
+                    Text("#\(genre)")
+                        .font(.caption2)
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.accentColor.opacity(0.15))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    // MARK: - Roles
+
+    @ViewBuilder
+    private var rolesSection: some View {
+        if !authManager.roles.isEmpty {
+            FlowLayout(spacing: 6) {
+                ForEach(authManager.roles, id: \.self) { role in
+                    Text(role)
+                        .font(.caption2)
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.accentColor.opacity(0.15))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    // MARK: - Actions
+
+    private var actionsSection: some View {
+        VStack(spacing: 10) {
+            Button("Edit Profile") {
+                showEditProfile = true
+            }
+            .font(.caption)
+            .fontWeight(.medium)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.white.opacity(0.2), lineWidth: 0.5)
+            )
+            .padding(.horizontal)
+
+            Button("Sign Out") {
+                authManager.signOut()
+            }
+            .font(.caption)
+            .fontWeight(.medium)
+            .foregroundStyle(.red)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.red.opacity(0.3), lineWidth: 0.5)
+            )
+            .padding(.horizontal)
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 40)
+    }
+
+    // MARK: - Featured Projects
 
     private var musicProjectsSection: some View {
         //TODO: add support for Spotify embeds
         //TODO: add support for ninaprotocol embeds
         //TODO: add support for SoundCloud embeds
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Music Projects")
-                .font(.headline)
-                .fontWeight(.bold)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Featured Projects")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
                 .padding(.horizontal)
 
             if authManager.musicProjects.isEmpty {
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     Image(systemName: "music.note.list")
-                        .font(.title)
+                        .font(.body)
                         .foregroundStyle(.tertiary)
-                    Text("No music projects yet")
-                        .font(.subheadline)
+                    Text("No featured projects yet")
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, 20)
             } else {
                 VStack(spacing: 10) {
                     ForEach(authManager.musicProjects) { project in
@@ -267,56 +330,62 @@ struct ProfileView: View {
 
     private func musicProjectRow(_ project: MusicProject) -> some View {
         Link(destination: URL(string: project.url) ?? URL(string: "https://example.com")!) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: project.platform.iconName)
-                    .font(.title3)
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 36, height: 36)
-                    .background(Color.accentColor.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                    )
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(project.title)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(.caption)
+                        .fontWeight(.medium)
                         .foregroundStyle(.primary)
                     Text(project.platform.rawValue)
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "arrow.up.right")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
-            .padding()
-            .background(Color(.systemGray6))
-            .clipShape(Rectangle())
+            .padding(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.white.opacity(0.2), lineWidth: 0.5)
+            )
         }
     }
 
     // MARK: - My Listings
 
     private var myListingsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("My Listings")
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
                 .padding(.horizontal)
 
             if listingManager.userListings.isEmpty {
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     Image(systemName: "guitars")
-                        .font(.title)
+                        .font(.body)
                         .foregroundStyle(.tertiary)
                     Text("No listings yet")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, 20)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -345,9 +414,9 @@ struct ProfileView: View {
     }
 
     private func userListingCard(_ listing: Listing) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Color.clear
-                .frame(width: 150, height: 110)
+                .frame(width: 140, height: 100)
                 .overlay {
                     if let firstURL = listing.photoURLs.first, let url = URL(string: firstURL) {
                         AsyncImage(url: url) { phase in
@@ -356,16 +425,19 @@ struct ProfileView: View {
                                 image.resizable().scaledToFill()
                             case .failure:
                                 Image(systemName: "photo")
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                             case .empty:
                                 ProgressView()
                             @unknown default:
                                 Image(systemName: "photo")
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                         }
                     } else {
                         Image(systemName: "photo")
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -373,73 +445,78 @@ struct ProfileView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(listing.title)
-                    .font(.caption)
-                    .fontWeight(.semibold)
+                    .font(.caption2)
+                    .fontWeight(.medium)
                     .lineLimit(1)
 
                 if let price = listing.price {
                     Text("$\(price, specifier: "%.0f")")
-                        .font(.caption)
-                        .foregroundStyle(Color.accentColor)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
 
                 HStack(spacing: 3) {
                     ForEach(listing.listingTypes, id: \.self) { type in
                         Text(type.rawValue)
-                            .font(.system(size: 8, weight: .semibold))
+                            .font(.system(size: 8))
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
-                            .background(Color.accentColor.opacity(0.15))
-                            .foregroundStyle(Color.accentColor)
-                            .clipShape(Capsule())
+                            .overlay(
+                                Capsule()
+                                    .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                            )
                     }
                 }
             }
             .padding(.horizontal, 6)
             .padding(.bottom, 6)
         }
-        .frame(width: 150)
-        .background(Color(.systemGray6))
+        .frame(width: 140)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - My Services
 
     private var myServicesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("My Services")
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
                 .padding(.horizontal)
 
             if listingManager.userServiceListings.isEmpty {
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     Image(systemName: "person.2")
-                        .font(.title)
+                        .font(.body)
                         .foregroundStyle(.tertiary)
                     Text("No services yet")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, 20)
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     ForEach(listingManager.userServiceListings) { service in
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: 1) {
                                 Text(service.title)
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                Text(service.category.rawValue)
                                     .font(.caption)
+                                    .fontWeight(.medium)
+                                Text(service.category.rawValue)
+                                    .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Text(service.rate)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(Color.accentColor)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
 
                             Menu {
                                 Button {
@@ -456,14 +533,16 @@ struct ProfileView: View {
                                 }
                             } label: {
                                 Image(systemName: "ellipsis")
-                                    .font(.body)
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .padding(.leading, 8)
                             }
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
+                        .padding(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
                     }
                 }
                 .padding(.horizontal)
@@ -475,51 +554,54 @@ struct ProfileView: View {
     // MARK: - My ISO Posts
 
     private var myISOPostsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("My ISO Posts")
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
                 .padding(.horizontal)
 
             if listingManager.userIsoPosts.isEmpty {
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     Image(systemName: "megaphone")
-                        .font(.title)
+                        .font(.body)
                         .foregroundStyle(.tertiary)
                     Text("No ISO posts yet")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
+                .padding(.vertical, 20)
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     ForEach(listingManager.userIsoPosts) { post in
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: 1) {
                                 HStack(spacing: 6) {
                                     Text(post.roleNeeded)
-                                        .font(.subheadline)
-                                        .fontWeight(.semibold)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
                                     if post.isExpired {
                                         Text("Expired")
-                                            .font(.system(size: 9, weight: .semibold))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(Color.red.opacity(0.15))
+                                            .font(.system(size: 8))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1)
+                                            .overlay(
+                                                Capsule()
+                                                    .stroke(Color.red.opacity(0.4), lineWidth: 0.5)
+                                            )
                                             .foregroundStyle(.red)
-                                            .clipShape(Capsule())
                                     }
                                 }
                                 Text(post.category.rawValue)
-                                    .font(.caption)
+                                    .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Text(post.budget)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(Color.accentColor)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
 
                             Menu {
                                 Button {
@@ -536,14 +618,16 @@ struct ProfileView: View {
                                 }
                             } label: {
                                 Image(systemName: "ellipsis")
-                                    .font(.body)
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .padding(.leading, 8)
                             }
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
+                        .padding(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                        )
                     }
                 }
                 .padding(.horizontal)

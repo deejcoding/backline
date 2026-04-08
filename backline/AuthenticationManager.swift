@@ -7,8 +7,14 @@
 
 import Foundation
 import FirebaseAuth
+import FirebaseCore
 import FirebaseFirestore
 import FirebaseStorage
+import AuthenticationServices
+import CryptoKit
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 @Observable
 final class AuthenticationManager {
@@ -22,10 +28,19 @@ final class AuthenticationManager {
     var instagramHandle: String?
     var musicProjects: [MusicProject] = []
     var genres: [String] = []
+    var roles: [String] = []
     var isAuthenticated: Bool { currentUser != nil }
     var isEmailVerified: Bool { currentUser?.isEmailVerified ?? false }
+    var needsUsername = false
+    var needsOnboarding = false
+    var onboardingStep = 0 // 0 = location, 1 = roles, 2 = photo, 3 = bio
     var errorMessage: String?
     var isLoading = false
+
+    var isSocialAuthUser: Bool {
+        guard let providerData = currentUser?.providerData else { return false }
+        return providerData.contains { $0.providerID == "apple.com" || $0.providerID == "google.com" }
+    }
 
     var profileScore: Int {
         var score = 0
@@ -41,6 +56,7 @@ final class AuthenticationManager {
     // MARK: - Private
 
     private var authStateListenerHandle: AuthStateDidChangeListenerHandle?
+    private var currentNonce: String?
 
     // MARK: - Init / Deinit
 
@@ -70,6 +86,9 @@ final class AuthenticationManager {
                 self?.instagramHandle = nil
                 self?.musicProjects = []
                 self?.genres = []
+                self?.roles = []
+                self?.needsOnboarding = false
+                self?.onboardingStep = 0
             }
         }
     }
@@ -79,7 +98,8 @@ final class AuthenticationManager {
             do {
                 let doc = try await db.collection("users").document(uid).getDocument()
                 let data = doc.data()
-                self.username = data?["username"] as? String
+                let fetchedUsername = data?["username"] as? String
+                self.username = fetchedUsername
                 self.profilePhotoURL = data?["profilePhotoURL"] as? String
                 self.bio = data?["bio"] as? String
                 self.instagramHandle = data?["instagramHandle"] as? String
@@ -99,6 +119,18 @@ final class AuthenticationManager {
                 }
 
                 self.genres = data?["genres"] as? [String] ?? []
+                self.roles = data?["roles"] as? [String] ?? []
+
+                // Check if user needs to set a username (social sign-in without username)
+                self.needsUsername = (fetchedUsername == nil || fetchedUsername!.isEmpty) && doc.exists
+
+                // Check if user needs onboarding (no "onboardingComplete" flag)
+                let onboardingComplete = data?["onboardingComplete"] as? Bool ?? false
+                if !onboardingComplete && doc.exists && !(self.needsUsername) {
+                    self.needsOnboarding = true
+                } else if onboardingComplete {
+                    self.needsOnboarding = false
+                }
             } catch {
                 // Profile fetch failed silently
             }
@@ -257,6 +289,9 @@ final class AuthenticationManager {
 
             // Send verification email
             try await result.user.sendEmailVerification()
+
+            // Set onboarding flag after everything else to avoid race with auth listener
+            self.needsOnboarding = true
         } catch {
             print("[AuthManager] Sign up error: \(error)")
             errorMessage = error.localizedDescription
@@ -278,11 +313,212 @@ final class AuthenticationManager {
         isLoading = false
     }
 
+    // MARK: - Sign in with Apple
+
+    func prepareAppleSignIn() -> ASAuthorizationAppleIDRequest {
+        let nonce = randomNonceString()
+        currentNonce = nonce
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = sha256(nonce)
+        return request
+    }
+
+    func signInWithApple(authorization: ASAuthorization) async {
+        guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            errorMessage = "Unable to get Apple ID credential."
+            return
+        }
+        guard let nonce = currentNonce else {
+            errorMessage = "Invalid state: no nonce found."
+            return
+        }
+        guard let appleIDToken = appleIDCredential.identityToken,
+              let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+            errorMessage = "Unable to get identity token."
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let credential = OAuthProvider.appleCredential(
+                withIDToken: idTokenString,
+                rawNonce: nonce,
+                fullName: appleIDCredential.fullName
+            )
+            let result = try await Auth.auth().signIn(with: credential)
+            currentUser = result.user
+
+            // Create Firestore user doc if it doesn't exist
+            let docRef = db.collection("users").document(result.user.uid)
+            let doc = try await docRef.getDocument()
+            if !doc.exists {
+                var userData: [String: Any] = [
+                    "email": result.user.email ?? ""
+                ]
+                // Apple only provides the name on first sign-in
+                if let fullName = appleIDCredential.fullName {
+                    let displayName = [fullName.givenName, fullName.familyName]
+                        .compactMap { $0 }
+                        .joined(separator: " ")
+                    if !displayName.isEmpty {
+                        userData["displayName"] = displayName
+                    }
+                }
+                try await docRef.setData(userData)
+                self.needsUsername = true
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    // MARK: - Sign in with Google
+
+    @MainActor
+    func signInWithGoogle() async {
+        #if canImport(GoogleSignIn)
+        guard let clientID = FirebaseApp.app()?.options.clientID else {
+            errorMessage = "Google Sign-In is not configured. Missing client ID."
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                  let rootViewController = windowScene.windows.first?.rootViewController else {
+                errorMessage = "Unable to get root view controller."
+                isLoading = false
+                return
+            }
+
+            let config = GIDConfiguration(clientID: clientID)
+            GIDSignIn.sharedInstance.configuration = config
+
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
+            guard let idToken = result.user.idToken?.tokenString else {
+                errorMessage = "Unable to get Google ID token."
+                isLoading = false
+                return
+            }
+
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: result.user.accessToken.tokenString
+            )
+            let authResult = try await Auth.auth().signIn(with: credential)
+            currentUser = authResult.user
+
+            // Create Firestore user doc if it doesn't exist
+            let docRef = db.collection("users").document(authResult.user.uid)
+            let doc = try await docRef.getDocument()
+            if !doc.exists {
+                try await docRef.setData([
+                    "email": authResult.user.email ?? "",
+                    "displayName": authResult.user.displayName ?? ""
+                ])
+                self.needsUsername = true
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+        #else
+        errorMessage = "Google Sign-In is not available. Add the GoogleSignIn-iOS package to enable this feature."
+        #endif
+    }
+
+    // MARK: - Set Username (for social sign-in users)
+
+    func setUsername(_ username: String) async {
+        guard let uid = currentUser?.uid else { return }
+        isLoading = true
+        errorMessage = nil
+
+        let trimmedUsername = username.lowercased()
+
+        do {
+            // Check uniqueness
+            let snapshot = try await db.collection("users")
+                .whereField("username", isEqualTo: trimmedUsername)
+                .getDocuments()
+
+            if !snapshot.documents.isEmpty {
+                errorMessage = "That username is already taken."
+                isLoading = false
+                return
+            }
+
+            try await db.collection("users").document(uid).updateData([
+                "username": trimmedUsername
+            ])
+            self.username = trimmedUsername
+            self.needsUsername = false
+            // Check if onboarding is still needed
+            let doc = try await db.collection("users").document(uid).getDocument()
+            let onboardingComplete = doc.data()?["onboardingComplete"] as? Bool ?? false
+            self.needsOnboarding = !onboardingComplete
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    // MARK: - Onboarding
+
+    func updateRoles(_ roles: [String]) async {
+        guard let uid = currentUser?.uid else { return }
+        do {
+            try await db.collection("users").document(uid).updateData(["roles": roles])
+            self.roles = roles
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func completeOnboarding() async {
+        guard let uid = currentUser?.uid else { return }
+        do {
+            try await db.collection("users").document(uid).updateData(["onboardingComplete": true])
+            self.needsOnboarding = false
+            self.onboardingStep = 0
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Nonce Helpers
+
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        if errorCode != errSecSuccess {
+            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+        }
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(randomBytes.map { byte in charset[Int(byte) % charset.count] })
+    }
+
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashedData = SHA256.hash(data: inputData)
+        return hashedData.compactMap { String(format: "%02x", $0) }.joined()
+    }
+
     // MARK: - Sign Out
 
     func signOut() {
         do {
             try Auth.auth().signOut()
+            needsUsername = false
+            needsOnboarding = false
+            onboardingStep = 0
         } catch {
             errorMessage = error.localizedDescription
         }

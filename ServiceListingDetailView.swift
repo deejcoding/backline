@@ -48,9 +48,11 @@ struct ServiceListingDetailView: View {
                             .clipShape(Capsule())
                     }
 
-                    Text("@\(service.sellerUsername)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    NavigationLink(value: ProfileDestination(uid: service.sellerUID, username: service.sellerUsername)) {
+                        Text("@\(service.sellerUsername)")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.accentColor)
+                    }
                 }
 
                 Divider()

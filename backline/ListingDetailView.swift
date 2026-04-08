@@ -98,7 +98,18 @@ struct ListingDetailView: View {
                     detailRow("Condition", value: listing.condition.rawValue)
                     detailRow("Category", value: listing.category.rawValue)
                     detailRow("Location", value: listing.location)
-                    detailRow("Seller", value: "@\(listing.sellerUsername)")
+                    HStack {
+                        Text("Seller")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        NavigationLink(value: ProfileDestination(uid: listing.sellerUID, username: listing.sellerUsername)) {
+                            Text("@\(listing.sellerUsername)")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
 
                     Divider()
 

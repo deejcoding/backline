@@ -52,45 +52,48 @@ private struct OnboardingLocationStep: View {
             Spacer()
 
             Text("Are you located in NYC?")
-                .font(.title)
+                .font(.title3)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)
 
             if locationDenied {
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     Image(systemName: "mappin.slash")
-                        .font(.system(size: 48))
+                        .font(.title2)
                         .foregroundStyle(.secondary)
                     Text("Sorry, backline is not available in your area yet. Stay tuned for updates.")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                 }
             } else {
-                VStack(spacing: 12) {
+                VStack(spacing: 10) {
                     Button {
                         onYes()
                     } label: {
                         Text("Yes")
-                            .fontWeight(.semibold)
+                            .font(.caption)
+                            .fontWeight(.medium)
                             .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.accentColor)
-                            .foregroundStyle(.white)
-                            .clipShape(Rectangle())
+                            .padding(.vertical, 10)
+                            .background(.white)
+                            .foregroundStyle(.black)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
 
                     Button {
                         onNo()
                     } label: {
                         Text("No")
-                            .fontWeight(.semibold)
+                            .font(.caption)
+                            .fontWeight(.medium)
                             .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(.systemGray5))
-                            .foregroundStyle(.primary)
-                            .clipShape(Rectangle())
+                            .padding(.vertical, 10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                            )
                     }
                 }
                 .padding(.horizontal)
@@ -132,19 +135,19 @@ private struct OnboardingRolesStep: View {
             .padding(.top, 16)
 
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
                     Spacer()
-                        .frame(height: 20)
+                        .frame(height: 16)
 
                     Text("What do you do?")
-                        .font(.title)
+                        .font(.title3)
                         .fontWeight(.bold)
 
                     Text("Select all that apply.")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    FlowLayout(spacing: 10) {
+                    FlowLayout(spacing: 8) {
                         ForEach(Self.allRoles, id: \.self) { role in
                             Button {
                                 if selectedRoles.contains(role) {
@@ -154,12 +157,11 @@ private struct OnboardingRolesStep: View {
                                 }
                             } label: {
                                 Text(role)
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .background(selectedRoles.contains(role) ? Color.accentColor : Color(.systemGray5))
-                                    .foregroundStyle(selectedRoles.contains(role) ? .white : .primary)
+                                    .font(.caption)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(selectedRoles.contains(role) ? Color.accentColor : Color.accentColor.opacity(0.15))
+                                    .foregroundStyle(selectedRoles.contains(role) ? .white : Color.accentColor)
                                     .clipShape(Capsule())
                             }
                         }
@@ -173,12 +175,13 @@ private struct OnboardingRolesStep: View {
                         }
                     } label: {
                         Text("Continue")
-                            .fontWeight(.semibold)
+                            .font(.caption)
+                            .fontWeight(.medium)
                             .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.accentColor)
-                            .foregroundStyle(.white)
-                            .clipShape(Rectangle())
+                            .padding(.vertical, 10)
+                            .background(.white)
+                            .foregroundStyle(.black)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                     .disabled(selectedRoles.isEmpty)
                     .padding(.horizontal)
@@ -215,9 +218,9 @@ private struct OnboardingPhotoStep: View {
 
             Spacer()
 
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 Text("Add a Profile Picture")
-                    .font(.title)
+                    .font(.title3)
                     .fontWeight(.bold)
 
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
@@ -230,15 +233,15 @@ private struct OnboardingPhotoStep: View {
                         } placeholder: {
                             ProgressView()
                         }
-                        .frame(width: 120, height: 120)
+                        .frame(width: 100, height: 100)
                         .clipShape(Circle())
                     } else {
-                        VStack(spacing: 12) {
+                        VStack(spacing: 10) {
                             Image(systemName: "person.circle.fill")
-                                .font(.system(size: 80))
-                                .foregroundStyle(Color.accentColor)
+                                .font(.system(size: 60))
+                                .foregroundStyle(.secondary)
                             Text("Tap to choose a photo")
-                                .font(.subheadline)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -264,12 +267,13 @@ private struct OnboardingPhotoStep: View {
                     onContinue()
                 } label: {
                     Text("Continue")
-                        .fontWeight(.semibold)
+                        .font(.caption)
+                        .fontWeight(.medium)
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(Rectangle())
+                        .padding(.vertical, 10)
+                        .background(.white)
+                        .foregroundStyle(.black)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .padding(.horizontal)
             }
@@ -304,21 +308,24 @@ private struct OnboardingBioStep: View {
 
             Spacer()
 
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 Text("Write a Short Bio")
-                    .font(.title)
+                    .font(.title3)
                     .fontWeight(.bold)
 
-                Text("Tell other musicians a bit about yourself.")
-                    .font(.subheadline)
+                Text("Tell other musicians a bit about yourself and your experience.")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
                 TextEditor(text: $bioText)
-                    .frame(height: 120)
+                    .font(.caption)
+                    .frame(height: 100)
                     .padding(8)
-                    .background(Color(.systemGray6))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                    )
                     .padding(.horizontal)
 
                 Button {
@@ -330,12 +337,13 @@ private struct OnboardingBioStep: View {
                     }
                 } label: {
                     Text("Finish")
-                        .fontWeight(.semibold)
+                        .font(.caption)
+                        .fontWeight(.medium)
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(Rectangle())
+                        .padding(.vertical, 10)
+                        .background(.white)
+                        .foregroundStyle(.black)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .padding(.horizontal)
             }
