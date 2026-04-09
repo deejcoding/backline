@@ -61,7 +61,7 @@ struct ChatView: View {
                         .foregroundStyle(
                             messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             ? Color(.systemGray4)
-                            : Color.accentColor
+                            : ThemeColor.blue
                         )
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -94,7 +94,7 @@ struct ChatView: View {
                 .font(.subheadline)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(isCurrentUser ? Color.accentColor : Color(.systemGray5))
+                .background(isCurrentUser ? ThemeColor.blue : Color(.systemGray5))
                 .foregroundStyle(isCurrentUser ? .white : .primary)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 

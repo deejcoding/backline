@@ -20,6 +20,17 @@ struct MainTabView: View {
     @State private var showCreateService = false
     @State private var showCreateISO = false
 
+    private var tabTintColor: Color {
+        switch selectedTab {
+        case 0: ThemeColor.blue
+        case 1: ThemeColor.green
+        case 2: .white
+        case 3: ThemeColor.red
+        case 4: ThemeColor.yellow
+        default: .white
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
@@ -39,6 +50,7 @@ struct MainTabView: View {
                     ProfileView()
                 }
             }
+            .tint(tabTintColor)
             .onChange(of: selectedTab) { oldValue, newValue in
                 if newValue == 2 {
                     selectedTab = oldValue

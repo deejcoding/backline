@@ -124,24 +124,9 @@ struct ISOFeedView: View {
     // MARK: - ISO Post Card
 
     private func isoPostCard(_ post: ISOPost) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Role + category badge
-            HStack {
-                Text(post.roleNeeded)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                Spacer()
-                Text(post.category.rawValue)
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .overlay(
-                        Capsule()
-                            .stroke(.white.opacity(0.2), lineWidth: 0.5)
-                    )
-            }
-
-            HStack(spacing: 5) {
+        VStack(alignment: .leading, spacing: 10) {
+            // Profile pic + "username is looking for..."
+            HStack(spacing: 10) {
                 if let photoURL = listingManager.profilePhotos[post.posterUID],
                    let url = URL(string: photoURL) {
                     AsyncImage(url: url) { image in
@@ -152,17 +137,39 @@ struct ISOFeedView: View {
                         Circle()
                             .fill(Color(.systemGray4))
                     }
-                    .frame(width: 16, height: 16)
+                    .frame(width: 36, height: 36)
                     .clipShape(Circle())
                 } else {
                     Image(systemName: "person.circle.fill")
-                        .font(.system(size: 16))
+                        .font(.system(size: 36))
                         .foregroundStyle(Color(.systemGray3))
                 }
-                Text("@\(post.posterUsername)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(post.posterUsername)
+                        .font(.caption)
+                        .fontWeight(.bold)
+                    + Text(" is looking for...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text(post.category.rawValue)
+                        .font(.caption2)
+                        .foregroundStyle(ThemeColor.blue)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(ThemeColor.blue.opacity(0.15))
+                        .clipShape(Capsule())
+                }
+
+                Spacer()
             }
+
+            // The actual request — larger, white
+            Text(post.roleNeeded)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
 
             Text(post.description)
                 .font(.caption)
@@ -181,6 +188,7 @@ struct ISOFeedView: View {
                 Text(post.budget)
                     .font(.caption)
                     .fontWeight(.medium)
+                    .foregroundStyle(ThemeColor.green)
             }
 
             // Message button
@@ -200,7 +208,7 @@ struct ISOFeedView: View {
                 }
             }
         }
-        .padding(10)
+        .padding(12)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(.white.opacity(0.2), lineWidth: 0.5)

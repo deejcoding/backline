@@ -43,15 +43,15 @@ struct ServiceListingDetailView: View {
                             .fontWeight(.semibold)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(Color.accentColor.opacity(0.15))
-                            .foregroundStyle(Color.accentColor)
+                            .background(ThemeColor.blue.opacity(0.15))
+                            .foregroundStyle(ThemeColor.blue)
                             .clipShape(Capsule())
                     }
 
                     NavigationLink(value: ProfileDestination(uid: service.sellerUID, username: service.sellerUsername)) {
                         Text("@\(service.sellerUsername)")
                             .font(.subheadline)
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(ThemeColor.blue)
                     }
                 }
 
@@ -94,7 +94,7 @@ struct ServiceListingDetailView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.accentColor)
+                            .background(ThemeColor.blue)
                             .foregroundStyle(.white)
                             .clipShape(Rectangle())
                     }
@@ -114,7 +114,7 @@ struct ServiceListingDetailView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.accentColor)
+                            .background(ThemeColor.blue)
                             .foregroundStyle(.white)
                             .clipShape(Rectangle())
                         }

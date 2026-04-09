@@ -171,7 +171,7 @@ struct CreateListingView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(formIsValid && !listingManager.isLoading ? Color.accentColor : Color.gray)
+                        .background(formIsValid && !listingManager.isLoading ? ThemeColor.blue : Color.gray)
                         .foregroundStyle(.white)
                         .clipShape(Rectangle())
                     }
@@ -217,7 +217,7 @@ struct CreateListingView: View {
                             Text("\(loadedImages.count)/10")
                                 .font(.caption2)
                         }
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(ThemeColor.blue)
                         .frame(width: 80, height: 80)
                         .background(Color(.systemGray6))
                         .clipShape(Rectangle())
@@ -260,7 +260,7 @@ struct CreateListingView: View {
                 .fontWeight(.medium)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(isOn.wrappedValue ? Color.accentColor : Color(.systemGray6))
+                .background(isOn.wrappedValue ? ThemeColor.blue : Color(.systemGray6))
                 .foregroundStyle(isOn.wrappedValue ? .white : .primary)
                 .clipShape(Capsule())
         }

@@ -21,7 +21,7 @@ struct ContentView: View {
                     Text("backline")
                         .font(.largeTitle)
                         .fontWeight(.bold)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(ThemeColor.blue)
                     Spacer()
                 }
             } else if authManager.isAuthenticated && authManager.needsUsername {

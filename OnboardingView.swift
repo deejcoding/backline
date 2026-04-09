@@ -148,7 +148,8 @@ private struct OnboardingRolesStep: View {
                         .foregroundStyle(.secondary)
 
                     FlowLayout(spacing: 8) {
-                        ForEach(Self.allRoles, id: \.self) { role in
+                        ForEach(Array(Self.allRoles.enumerated()), id: \.element) { index, role in
+                            let color = ThemeColor.cycle(index)
                             Button {
                                 if selectedRoles.contains(role) {
                                     selectedRoles.remove(role)
@@ -160,8 +161,8 @@ private struct OnboardingRolesStep: View {
                                     .font(.caption)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
-                                    .background(selectedRoles.contains(role) ? Color.accentColor : Color.accentColor.opacity(0.15))
-                                    .foregroundStyle(selectedRoles.contains(role) ? .white : Color.accentColor)
+                                    .background(selectedRoles.contains(role) ? color : color.opacity(0.15))
+                                    .foregroundStyle(selectedRoles.contains(role) ? .white : color)
                                     .clipShape(Capsule())
                             }
                         }

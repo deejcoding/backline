@@ -12,6 +12,22 @@ import UserNotifications
 import GoogleSignIn
 #endif
 
+// MARK: - Primary Theme Colors
+
+enum ThemeColor {
+    static let blue = Color(red: 0, green: 0, blue: 1)
+    static let red = Color(red: 1, green: 0, blue: 0)
+    static let yellow = Color(red: 1, green: 1, blue: 0)
+    static let green = Color(red: 0, green: 0.7, blue: 0)
+
+    static let all: [Color] = [blue, red, yellow, green]
+
+    /// Returns a color cycling through the four primaries by index.
+    static func cycle(_ index: Int) -> Color {
+        all[index % all.count]
+    }
+}
+
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     var authManager: AuthenticationManager!
     var listingManager: ListingManager!

@@ -73,7 +73,7 @@ struct ConversationsView: View {
 
             if unread {
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(ThemeColor.blue)
                     .frame(width: 10, height: 10)
             }
         }

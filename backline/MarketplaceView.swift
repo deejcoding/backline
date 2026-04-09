@@ -179,6 +179,7 @@ struct MarketplaceView: View {
                 if let price = listing.price {
                     Text("$\(price, specifier: "%.0f")")
                         .font(.caption)
+                        .foregroundStyle(ThemeColor.green)
                 }
                 if let rentPrice = listing.rentPrice, !rentPrice.isEmpty {
                     Text(rentPrice)
@@ -188,15 +189,15 @@ struct MarketplaceView: View {
 
                 // Listing type tags
                 HStack(spacing: 3) {
-                    ForEach(listing.listingTypes, id: \.self) { type in
+                    ForEach(Array(listing.listingTypes.enumerated()), id: \.element) { index, type in
+                        let color = ThemeColor.cycle(index)
                         Text(type.rawValue)
                             .font(.system(size: 8))
+                            .foregroundStyle(color)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
-                            .overlay(
-                                Capsule()
-                                    .stroke(.white.opacity(0.2), lineWidth: 0.5)
-                            )
+                            .background(color.opacity(0.15))
+                            .clipShape(Capsule())
                     }
                 }
 

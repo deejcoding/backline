@@ -130,7 +130,7 @@ struct PublicProfileView: View {
             } else {
                 Image(systemName: "person.circle.fill")
                     .font(.system(size: 80))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(ThemeColor.blue)
             }
 
             // Username, bio, instagram
@@ -172,13 +172,14 @@ struct PublicProfileView: View {
     private var genresSection: some View {
         if !genres.isEmpty {
             FlowLayout(spacing: 6) {
-                ForEach(genres, id: \.self) { genre in
+                ForEach(Array(genres.enumerated()), id: \.element) { index, genre in
+                    let color = ThemeColor.cycle(index)
                     Text("#\(genre)")
                         .font(.caption2)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(color)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.accentColor.opacity(0.15))
+                        .background(color.opacity(0.15))
                         .clipShape(Capsule())
                 }
             }
@@ -192,13 +193,14 @@ struct PublicProfileView: View {
     private var rolesSection: some View {
         if !roles.isEmpty {
             FlowLayout(spacing: 6) {
-                ForEach(roles, id: \.self) { role in
+                ForEach(Array(roles.enumerated()), id: \.element) { index, role in
+                    let color = ThemeColor.cycle(index)
                     Text(role)
                         .font(.caption2)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(color)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.accentColor.opacity(0.15))
+                        .background(color.opacity(0.15))
                         .clipShape(Capsule())
                 }
             }

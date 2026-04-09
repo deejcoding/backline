@@ -15,6 +15,7 @@ struct UserProfile: Identifiable, Hashable {
     let username: String
     var profilePhotoURL: String?
     var roles: [String]
+    var genres: [String]
     var bio: String?
 }
 
@@ -40,12 +41,14 @@ final class ListingManager {
                 guard let username = data["username"] as? String, !username.isEmpty else { return nil }
                 let photoURL = data["profilePhotoURL"] as? String
                 let roles = data["roles"] as? [String] ?? []
+                let genres = data["genres"] as? [String] ?? []
                 let bio = data["bio"] as? String
                 return UserProfile(
                     id: doc.documentID,
                     username: username,
                     profilePhotoURL: photoURL,
                     roles: roles,
+                    genres: genres,
                     bio: bio
                 )
             }

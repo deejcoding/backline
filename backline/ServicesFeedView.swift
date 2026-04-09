@@ -160,13 +160,14 @@ struct ServicesFeedView: View {
             // Roles
             if !user.roles.isEmpty {
                 FlowLayout(spacing: 4) {
-                    ForEach(user.roles.prefix(3), id: \.self) { role in
+                    ForEach(Array(user.roles.prefix(3).enumerated()), id: \.element) { index, role in
+                        let color = ThemeColor.cycle(index)
                         Text(role)
                             .font(.system(size: 9))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(color)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.15))
+                            .background(color.opacity(0.15))
                             .clipShape(Capsule())
                     }
                 }

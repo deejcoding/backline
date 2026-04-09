@@ -43,8 +43,8 @@ struct ISOPostDetailView: View {
                             .fontWeight(.semibold)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(Color.accentColor.opacity(0.15))
-                            .foregroundStyle(Color.accentColor)
+                            .background(ThemeColor.blue.opacity(0.15))
+                            .foregroundStyle(ThemeColor.blue)
                             .clipShape(Capsule())
                     }
 
@@ -62,7 +62,7 @@ struct ISOPostDetailView: View {
                     NavigationLink(value: ProfileDestination(uid: post.posterUID, username: post.posterUsername)) {
                         Text("@\(post.posterUsername)")
                             .font(.subheadline)
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(ThemeColor.blue)
                     }
                 }
 
@@ -94,7 +94,7 @@ struct ISOPostDetailView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.accentColor)
+                            .background(ThemeColor.blue)
                             .foregroundStyle(.white)
                             .clipShape(Rectangle())
                     }
@@ -114,7 +114,7 @@ struct ISOPostDetailView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.accentColor)
+                            .background(ThemeColor.blue)
                             .foregroundStyle(.white)
                             .clipShape(Rectangle())
                         }

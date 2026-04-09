@@ -103,7 +103,7 @@ struct EditProfileView: View {
                     addGenre()
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(ThemeColor.blue)
                 }
                 .disabled(newGenre.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -129,8 +129,8 @@ struct EditProfileView: View {
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Color.accentColor.opacity(0.12))
-                        .foregroundStyle(Color.accentColor)
+                        .background(ThemeColor.blue.opacity(0.12))
+                        .foregroundStyle(ThemeColor.blue)
                         .clipShape(Capsule())
                     }
                 }
@@ -188,7 +188,7 @@ struct EditProfileView: View {
                     showAddProject = true
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(ThemeColor.blue)
                 }
             }
             .padding(.horizontal)
@@ -202,7 +202,7 @@ struct EditProfileView: View {
                 ForEach(musicProjects) { project in
                     HStack {
                         Image(systemName: project.platform.iconName)
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(ThemeColor.blue)
                             .frame(width: 24)
                         VStack(alignment: .leading) {
                             Text(project.title)

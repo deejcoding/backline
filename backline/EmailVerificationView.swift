@@ -19,7 +19,7 @@ struct EmailVerificationView: View {
 
             Image(systemName: "envelope.badge")
                 .font(.system(size: 56))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(ThemeColor.blue)
 
             Text("Verify Your Email")
                 .font(.title2)
@@ -50,7 +50,7 @@ struct EmailVerificationView: View {
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.accentColor)
+                .background(ThemeColor.blue)
                 .foregroundStyle(.white)
                 .clipShape(Rectangle())
             }

@@ -74,7 +74,7 @@ struct UsernamePromptView: View {
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.accentColor)
+                    .background(ThemeColor.blue)
                     .foregroundStyle(.white)
                     .clipShape(Rectangle())
                 }

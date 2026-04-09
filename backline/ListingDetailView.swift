@@ -68,26 +68,27 @@ struct ListingDetailView: View {
                         Text("$\(price, specifier: "%.0f")")
                             .font(.title3)
                             .fontWeight(.semibold)
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(ThemeColor.green)
                     }
 
                     if let rentPrice = listing.rentPrice, !rentPrice.isEmpty {
                         Text(rentPrice)
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(ThemeColor.green)
                     }
 
                     // Listing type tags
                     HStack(spacing: 6) {
-                        ForEach(listing.listingTypes, id: \.self) { type in
+                        ForEach(Array(listing.listingTypes.enumerated()), id: \.element) { index, type in
+                            let color = ThemeColor.cycle(index)
                             Text(type.rawValue)
                                 .font(.caption)
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
-                                .background(Color.accentColor.opacity(0.15))
-                                .foregroundStyle(Color.accentColor)
+                                .background(color.opacity(0.15))
+                                .foregroundStyle(color)
                                 .clipShape(Capsule())
                         }
                     }
@@ -107,7 +108,7 @@ struct ListingDetailView: View {
                             Text("@\(listing.sellerUsername)")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(ThemeColor.blue)
                         }
                     }
 
@@ -131,7 +132,7 @@ struct ListingDetailView: View {
                                 .fontWeight(.semibold)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.accentColor)
+                                .background(ThemeColor.blue)
                                 .foregroundStyle(.white)
                                 .clipShape(Rectangle())
                         }
@@ -151,7 +152,7 @@ struct ListingDetailView: View {
                                 .fontWeight(.semibold)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.accentColor)
+                                .background(ThemeColor.blue)
                                 .foregroundStyle(.white)
                                 .clipShape(Rectangle())
                             }

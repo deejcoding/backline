@@ -111,7 +111,7 @@ struct EditServiceListingView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(formIsValid && !listingManager.isLoading ? Color.accentColor : Color.gray)
+                        .background(formIsValid && !listingManager.isLoading ? ThemeColor.blue : Color.gray)
                         .foregroundStyle(.white)
                         .clipShape(Rectangle())
                     }

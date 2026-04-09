@@ -167,7 +167,7 @@ struct ProfileView: View {
                 } else {
                     Image(systemName: "person.circle.fill")
                         .font(.system(size: 80))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(ThemeColor.blue)
                 }
             }
             .onChange(of: selectedPhoto) { _, newItem in
@@ -222,13 +222,14 @@ struct ProfileView: View {
     private var genresSection: some View {
         if !authManager.genres.isEmpty {
             FlowLayout(spacing: 6) {
-                ForEach(authManager.genres, id: \.self) { genre in
+                ForEach(Array(authManager.genres.enumerated()), id: \.element) { index, genre in
+                    let color = ThemeColor.cycle(index)
                     Text("#\(genre)")
                         .font(.caption2)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(color)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.accentColor.opacity(0.15))
+                        .background(color.opacity(0.15))
                         .clipShape(Capsule())
                 }
             }
@@ -242,13 +243,14 @@ struct ProfileView: View {
     private var rolesSection: some View {
         if !authManager.roles.isEmpty {
             FlowLayout(spacing: 6) {
-                ForEach(authManager.roles, id: \.self) { role in
+                ForEach(Array(authManager.roles.enumerated()), id: \.element) { index, role in
+                    let color = ThemeColor.cycle(index)
                     Text(role)
                         .font(.caption2)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(color)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.accentColor.opacity(0.15))
+                        .background(color.opacity(0.15))
                         .clipShape(Capsule())
                 }
             }
@@ -456,15 +458,15 @@ struct ProfileView: View {
                 }
 
                 HStack(spacing: 3) {
-                    ForEach(listing.listingTypes, id: \.self) { type in
+                    ForEach(Array(listing.listingTypes.enumerated()), id: \.element) { index, type in
+                        let color = ThemeColor.cycle(index)
                         Text(type.rawValue)
                             .font(.system(size: 8))
+                            .foregroundStyle(color)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
-                            .overlay(
-                                Capsule()
-                                    .stroke(.white.opacity(0.2), lineWidth: 0.5)
-                            )
+                            .background(color.opacity(0.15))
+                            .clipShape(Capsule())
                     }
                 }
             }
