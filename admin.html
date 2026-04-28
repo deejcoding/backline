@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backline Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a; color: #e0e0e0;
+            min-height: 100vh;
+        }
+        /* Login */
+        #login-screen {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; gap: 16px;
+        }
+        #login-screen h1 { font-size: 24px; margin-bottom: 8px; }
+        #login-screen input {
+            width: 300px; padding: 12px 16px; border-radius: 8px;
+            border: 1px solid #333; background: #1a1a1a; color: #e0e0e0;
+            font-size: 14px;
+        }
+        #login-screen button {
+            width: 300px; padding: 12px; border-radius: 8px; border: none;
+            background: #4a9eff; color: #000; font-weight: 600; font-size: 14px;
+            cursor: pointer;
+        }
+        #login-screen button:hover { background: #3a8eef; }
+        #login-error { color: #ff4444; font-size: 13px; }
+
+        /* Main layout */
+        #app { display: none; }
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 24px; border-bottom: 1px solid #222;
+            background: #111;
+        }
+        header h1 { font-size: 18px; font-weight: 700; }
+        header .user-info { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #999; }
+        header button {
+            padding: 6px 14px; border-radius: 6px; border: 1px solid #333;
+            background: transparent; color: #e0e0e0; font-size: 12px; cursor: pointer;
+        }
+        header button:hover { background: #222; }
+
+        /* Tabs */
+        .tabs {
+            display: flex; gap: 0; border-bottom: 1px solid #222;
+            background: #111; padding: 0 24px;
+        }
+        .tab {
+            padding: 12px 20px; font-size: 13px; font-weight: 500; cursor: pointer;
+            border-bottom: 2px solid transparent; color: #888;
+            transition: all 0.15s;
+        }
+        .tab:hover { color: #ccc; }
+        .tab.active { color: #4a9eff; border-bottom-color: #4a9eff; }
+        .tab .badge {
+            display: inline-block; background: #ff3b30; color: #fff;
+            font-size: 10px; font-weight: 700; padding: 1px 6px;
+            border-radius: 10px; margin-left: 6px;
+        }
+
+        /* Content */
+        .content { padding: 24px; max-width: 1200px; margin: 0 auto; }
+        .section-title { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+        .loading { text-align: center; padding: 60px; color: #666; }
+
+        /* Cards */
+        .card {
+            background: #161616; border: 1px solid #222; border-radius: 10px;
+            padding: 16px; margin-bottom: 12px;
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .card-title { font-size: 15px; font-weight: 600; }
+        .card-subtitle { font-size: 12px; color: #888; margin-top: 2px; }
+        .card-body { font-size: 13px; color: #bbb; line-height: 1.5; }
+        .card-meta { display: flex; gap: 16px; margin-top: 10px; font-size: 12px; color: #666; flex-wrap: wrap; }
+        .card-meta span { display: flex; align-items: center; gap: 4px; }
+        .card-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+        .tag {
+            display: inline-block; font-size: 11px; font-weight: 500;
+            padding: 2px 8px; border-radius: 10px; margin-right: 4px;
+        }
+        .tag-red { background: rgba(255,59,48,0.15); color: #ff3b30; }
+        .tag-yellow { background: rgba(255,204,0,0.15); color: #ffcc00; }
+        .tag-blue { background: rgba(74,158,255,0.15); color: #4a9eff; }
+        .tag-green { background: rgba(48,209,88,0.15); color: #30d158; }
+        .tag-cyan { background: rgba(0,199,190,0.15); color: #00c7be; }
+
+        /* Buttons */
+        .btn {
+            padding: 6px 14px; border-radius: 6px; border: none;
+            font-size: 12px; font-weight: 600; cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .btn:hover { opacity: 0.8; }
+        .btn-danger { background: #ff3b30; color: #fff; }
+        .btn-secondary { background: #333; color: #e0e0e0; }
+        .btn-primary { background: #4a9eff; color: #000; }
+
+        /* Empty state */
+        .empty { text-align: center; padding: 60px 20px; color: #555; }
+        .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+        /* Report detail */
+        .report-reason { font-size: 14px; font-weight: 600; color: #ff9500; margin-bottom: 4px; }
+        .report-details { font-size: 13px; color: #bbb; font-style: italic; }
+
+        /* Stats row */
+        .stats { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .stat-card {
+            background: #161616; border: 1px solid #222; border-radius: 10px;
+            padding: 16px 20px; flex: 1; min-width: 140px;
+        }
+        .stat-value { font-size: 28px; font-weight: 700; }
+        .stat-label { font-size: 12px; color: #888; margin-top: 2px; }
+
+        /* Confirm dialog */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+        }
+        .dialog {
+            background: #1a1a1a; border: 1px solid #333; border-radius: 12px;
+            padding: 24px; max-width: 400px; width: 90%;
+        }
+        .dialog h3 { margin-bottom: 8px; }
+        .dialog p { font-size: 13px; color: #999; margin-bottom: 20px; }
+        .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    </style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen">
+    <h1>Backline Admin</h1>
+    <p style="color:#888; font-size:13px; margin-bottom:8px;">Sign in with your admin account</p>
+    <input type="email" id="login-email" placeholder="Email">
+    <input type="password" id="login-password" placeholder="Password">
+    <button onclick="signIn()">Sign In</button>
+    <div id="login-error"></div>
+</div>
+
+<!-- App -->
+<div id="app">
+    <header>
+        <h1>Backline Admin</h1>
+        <div class="user-info">
+            <span id="admin-email"></span>
+            <button onclick="signOutAdmin()">Sign Out</button>
+        </div>
+    </header>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="reports" onclick="switchTab('reports')">
+            Reports <span class="badge" id="reports-badge" style="display:none">0</span>
+        </div>
+        <div class="tab" data-tab="listings" onclick="switchTab('listings')">Listings</div>
+        <div class="tab" data-tab="services" onclick="switchTab('services')">Services</div>
+        <div class="tab" data-tab="iso" onclick="switchTab('iso')">ISO Posts</div>
+        <div class="tab" data-tab="users" onclick="switchTab('users')">Users</div>
+    </div>
+
+    <div class="content" id="tab-content">
+        <div class="loading">Loading...</div>
+    </div>
+</div>
+
+<!-- Confirm Dialog (hidden) -->
+<div class="overlay" id="confirm-dialog" style="display:none">
+    <div class="dialog">
+        <h3 id="confirm-title">Confirm</h3>
+        <p id="confirm-message">Are you sure?</p>
+        <div class="dialog-actions">
+            <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+            <button class="btn btn-danger" id="confirm-action">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc, query, orderBy, limit, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getStorage, ref, deleteObject, listAll } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAWTH5Tx-CNfBI11QpQOZ4BBu0W22sRZF0",
+        authDomain: "backline-7e769.firebaseapp.com",
+        projectId: "backline-7e769",
+        storageBucket: "backline-7e769.firebasestorage.app",
+        messagingSenderId: "1039412382496",
+        appId: "1:1039412382496:ios:e1f6c162f0e54275672545"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    // Admin UID whitelist — add your UID here
+    const ADMIN_UIDS = [];  // e.g. ["SzRplFjd5ITmPPUnuidDuqLlEk52"]
+
+    let currentTab = "reports";
+    let cachedData = {};
+
+    // Expose to global scope
+    window.signIn = async function() {
+        const email = document.getElementById("login-email").value;
+        const password = document.getElementById("login-password").value;
+        const errorEl = document.getElementById("login-error");
+        errorEl.textContent = "";
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+        } catch (e) {
+            errorEl.textContent = e.message;
+        }
+    };
+
+    window.signOutAdmin = async function() {
+        await signOut(auth);
+    };
+
+    window.switchTab = function(tab) {
+        currentTab = tab;
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelector(`[data-tab="${tab}"]`).classList.add("active");
+        renderTab();
+    };
+
+    window.closeConfirm = function() {
+        document.getElementById("confirm-dialog").style.display = "none";
+    };
+
+    function showConfirm(title, message, action) {
+        document.getElementById("confirm-title").textContent = title;
+        document.getElementById("confirm-message").textContent = message;
+        const btn = document.getElementById("confirm-action");
+        btn.onclick = async () => {
+            btn.textContent = "Deleting...";
+            btn.disabled = true;
+            await action();
+            btn.textContent = "Delete";
+            btn.disabled = false;
+            closeConfirm();
+        };
+        document.getElementById("confirm-dialog").style.display = "flex";
+    }
+    window.showConfirm = showConfirm;
+
+    // Auth state
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            if (ADMIN_UIDS.length > 0 && !ADMIN_UIDS.includes(user.uid)) {
+                document.getElementById("login-error").textContent = "Not authorized as admin. Your UID: " + user.uid;
+                await signOut(auth);
+                return;
+            }
+            document.getElementById("login-screen").style.display = "none";
+            document.getElementById("app").style.display = "block";
+            document.getElementById("admin-email").textContent = user.email;
+            loadAllData();
+        } else {
+            document.getElementById("login-screen").style.display = "flex";
+            document.getElementById("app").style.display = "none";
+        }
+    });
+
+    async function loadAllData() {
+        document.getElementById("tab-content").innerHTML = '<div class="loading">Loading...</div>';
+        try {
+            const [reports, listings, services, isoPosts, users] = await Promise.all([
+                fetchCollection("reports", "createdAt"),
+                fetchCollection("listings", "createdAt"),
+                fetchCollection("serviceListings", "createdAt"),
+                fetchCollection("isoPosts", "createdAt"),
+                fetchCollection("users", null)
+            ]);
+            cachedData = { reports, listings, services, isoPosts, users };
+
+            // Reports badge
+            const badge = document.getElementById("reports-badge");
+            if (reports.length > 0) {
+                badge.style.display = "inline-block";
+                badge.textContent = reports.length;
+            } else {
+                badge.style.display = "none";
+            }
+
+            renderTab();
+        } catch (e) {
+            document.getElementById("tab-content").innerHTML = `<div class="empty"><p>Error: ${e.message}</p></div>`;
+        }
+    }
+    window.loadAllData = loadAllData;
+
+    async function fetchCollection(name, orderField) {
+        let q;
+        if (orderField) {
+            q = query(collection(db, name), orderBy(orderField, "desc"), limit(200));
+        } else {
+            q = query(collection(db, name), limit(200));
+        }
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    function renderTab() {
+        const container = document.getElementById("tab-content");
+        switch (currentTab) {
+            case "reports": container.innerHTML = renderReports(); break;
+            case "listings": container.innerHTML = renderListings(); break;
+            case "services": container.innerHTML = renderServices(); break;
+            case "iso": container.innerHTML = renderISO(); break;
+            case "users": container.innerHTML = renderUsers(); break;
+        }
+    }
+
+    function formatDate(ts) {
+        if (!ts) return "—";
+        const d = ts.toDate ? ts.toDate() : new Date(ts);
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // ── Reports ──
+    function renderReports() {
+        const reports = cachedData.reports || [];
+        if (reports.length === 0) return '<div class="empty"><div class="empty-icon">✅</div><p>No reports to review</p></div>';
+        return `<div class="section-title">Reports (${reports.length})</div>` +
+            reports.map(r => `
+                <div class="card" id="card-${r.id}">
+                    <div class="card-header">
+                        <div>
+                            <div class="report-reason">${escapeHtml(r.reason)}</div>
+                            <div class="card-subtitle">
+                                <span class="tag tag-red">${escapeHtml(r.contentType)}</span>
+                                Reported by ${escapeHtml(r.reporterUID?.substring(0,8))}...
+                            </div>
+                        </div>
+                        <span style="font-size:11px;color:#666">${formatDate(r.createdAt)}</span>
+                    </div>
+                    ${r.details ? `<div class="report-details">"${escapeHtml(r.details)}"</div>` : ""}
+                    <div class="card-meta">
+                        <span>Content ID: ${escapeHtml(r.contentId?.substring(0,12))}...</span>
+                        <span>Reported user: ${escapeHtml(r.reportedUID?.substring(0,12))}...</span>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-danger" onclick="deleteReport('${r.id}')">Dismiss Report</button>
+                        <button class="btn btn-danger" onclick="deleteReportedContent('${r.id}', '${r.contentType}', '${r.contentId}')">Delete Content</button>
+                    </div>
+                </div>
+            `).join("");
+    }
+
+    window.deleteReport = function(reportId) {
+        showConfirm("Dismiss Report", "This will remove the report without taking action.", async () => {
+            await deleteDoc(doc(db, "reports", reportId));
+            cachedData.reports = cachedData.reports.filter(r => r.id !== reportId);
+            renderTab();
+            updateBadge();
+        });
+    };
+
+    window.deleteReportedContent = function(reportId, contentType, contentId) {
+        const collMap = { listing: "listings", isoPost: "isoPosts", service: "serviceListings", user: null };
+        const coll = collMap[contentType];
+        const msg = coll
+            ? "This will delete the reported content AND dismiss the report."
+            : "This will dismiss the report. User accounts must be managed separately.";
+        showConfirm("Delete Content", msg, async () => {
+            if (coll && contentId) {
+                await deleteDoc(doc(db, coll, contentId));
+                // Remove from cache
+                if (contentType === "listing") cachedData.listings = cachedData.listings.filter(l => l.id !== contentId);
+                if (contentType === "isoPost") cachedData.isoPosts = cachedData.isoPosts.filter(p => p.id !== contentId);
+                if (contentType === "service") cachedData.services = cachedData.services.filter(s => s.id !== contentId);
+            }
+            await deleteDoc(doc(db, "reports", reportId));
+            cachedData.reports = cachedData.reports.filter(r => r.id !== reportId);
+            renderTab();
+            updateBadge();
+        });
+    };
+
+    function updateBadge() {
+        const badge = document.getElementById("reports-badge");
+        const count = (cachedData.reports || []).length;
+        badge.style.display = count > 0 ? "inline-block" : "none";
+        badge.textContent = count;
+    }
+
+    // ── Listings ──
+    function renderListings() {
+        const items = cachedData.listings || [];
+        if (items.length === 0) return '<div class="empty"><div class="empty-icon">📦</div><p>No listings</p></div>';
+
+        const stats = `<div class="stats">
+            <div class="stat-card"><div class="stat-value">${items.length}</div><div class="stat-label">Total Listings</div></div>
+        </div>`;
+
+        return stats + `<div class="section-title">Listings</div>` +
+            items.map(l => `
+                <div class="card" id="card-${l.id}">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">${escapeHtml(l.title)}</div>
+                            <div class="card-subtitle">by @${escapeHtml(l.sellerUsername)} &middot; ${escapeHtml(l.category)}</div>
+                        </div>
+                        <span style="font-size:11px;color:#666">${formatDate(l.createdAt)}</span>
+                    </div>
+                    <div class="card-body">${escapeHtml(l.description?.substring(0, 200))}${l.description?.length > 200 ? "..." : ""}</div>
+                    <div class="card-meta">
+                        ${l.price ? `<span class="tag tag-green">$${l.price}</span>` : ""}
+                        <span class="tag tag-blue">${escapeHtml(l.condition)}</span>
+                        <span>${escapeHtml(l.location)}</span>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-danger" onclick="deleteListing('${l.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join("");
+    }
+
+    window.deleteListing = function(id) {
+        showConfirm("Delete Listing", "This listing will be permanently deleted.", async () => {
+            await deleteDoc(doc(db, "listings", id));
+            cachedData.listings = cachedData.listings.filter(l => l.id !== id);
+            renderTab();
+        });
+    };
+
+    // ── Services ──
+    function renderServices() {
+        const items = cachedData.services || [];
+        if (items.length === 0) return '<div class="empty"><div class="empty-icon">🎸</div><p>No services</p></div>';
+
+        return `<div class="stats">
+            <div class="stat-card"><div class="stat-value">${items.length}</div><div class="stat-label">Total Services</div></div>
+        </div><div class="section-title">Services</div>` +
+            items.map(s => `
+                <div class="card" id="card-${s.id}">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">${escapeHtml(s.title)}</div>
+                            <div class="card-subtitle">by @${escapeHtml(s.sellerUsername)} &middot; ${escapeHtml(s.category)}</div>
+                        </div>
+                        <span style="font-size:11px;color:#666">${formatDate(s.createdAt)}</span>
+                    </div>
+                    <div class="card-body">${escapeHtml(s.description?.substring(0, 200))}${s.description?.length > 200 ? "..." : ""}</div>
+                    <div class="card-meta">
+                        <span class="tag tag-green">${escapeHtml(s.rate)}</span>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-danger" onclick="deleteService('${s.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join("");
+    }
+
+    window.deleteService = function(id) {
+        showConfirm("Delete Service", "This service listing will be permanently deleted.", async () => {
+            await deleteDoc(doc(db, "serviceListings", id));
+            cachedData.services = cachedData.services.filter(s => s.id !== id);
+            renderTab();
+        });
+    };
+
+    // ── ISO Posts ──
+    function renderISO() {
+        const items = cachedData.isoPosts || [];
+        if (items.length === 0) return '<div class="empty"><div class="empty-icon">📋</div><p>No ISO posts</p></div>';
+
+        return `<div class="stats">
+            <div class="stat-card"><div class="stat-value">${items.length}</div><div class="stat-label">Total ISO Posts</div></div>
+        </div><div class="section-title">ISO Posts</div>` +
+            items.map(p => `
+                <div class="card" id="card-${p.id}">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">${escapeHtml(p.roleNeeded)}</div>
+                            <div class="card-subtitle">by @${escapeHtml(p.posterUsername)} &middot; ${escapeHtml(p.category)}</div>
+                        </div>
+                        <span style="font-size:11px;color:#666">${formatDate(p.createdAt)}</span>
+                    </div>
+                    <div class="card-body">${escapeHtml(p.description?.substring(0, 200))}${p.description?.length > 200 ? "..." : ""}</div>
+                    <div class="card-meta">
+                        <span class="tag tag-green">${escapeHtml(p.budget)}</span>
+                        <span>${escapeHtml(p.location)}</span>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-danger" onclick="deleteISO('${p.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join("");
+    }
+
+    window.deleteISO = function(id) {
+        showConfirm("Delete ISO Post", "This ISO post will be permanently deleted.", async () => {
+            await deleteDoc(doc(db, "isoPosts", id));
+            cachedData.isoPosts = cachedData.isoPosts.filter(p => p.id !== id);
+            renderTab();
+        });
+    };
+
+    // ── Users ──
+    function renderUsers() {
+        const items = cachedData.users || [];
+        if (items.length === 0) return '<div class="empty"><div class="empty-icon">👤</div><p>No users</p></div>';
+
+        return `<div class="stats">
+            <div class="stat-card"><div class="stat-value">${items.length}</div><div class="stat-label">Total Users</div></div>
+        </div><div class="section-title">Users</div>` +
+            items.map(u => `
+                <div class="card" id="card-${u.id}">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">@${escapeHtml(u.username)}</div>
+                            <div class="card-subtitle">${escapeHtml(u.email || u.id)}</div>
+                        </div>
+                    </div>
+                    <div class="card-meta">
+                        ${(u.roles || []).map(r => `<span class="tag tag-yellow">${escapeHtml(r)}</span>`).join("")}
+                        ${(u.genres || []).map(g => `<span class="tag tag-cyan">${escapeHtml(g)}</span>`).join("")}
+                    </div>
+                    <div class="card-body" style="margin-top:8px">
+                        ${u.bio ? escapeHtml(u.bio.substring(0, 150)) : '<span style="color:#555">No bio</span>'}
+                    </div>
+                </div>
+            `).join("");
+    }
+</script>
+
+</body>
+</html>
