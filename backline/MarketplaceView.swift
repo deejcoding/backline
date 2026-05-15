@@ -8,20 +8,30 @@
 import SwiftUI
 import FirebaseAuth
 
+    enum MarketplaceSegment: String, CaseIterable {
+        case goods = "Goods"
+        case services = "Services"
+    }
+
 struct MarketplaceView: View {
+
+    @Binding var navigationPath: NavigationPath
 
     @Environment(ListingManager.self) private var listingManager
     @Environment(AuthenticationManager.self) private var authManager
     @Environment(MessagesManager.self) private var messagesManager
 
     @State private var searchText = ""
+    @State private var selectedSegment: MarketplaceSegment = .goods
     @State private var selectedCategory: ListingCategory?
+    @State private var selectedServiceCategory: ServiceCategory?
     @State private var navigateToChat = false
     @State private var activeChatConversationId: String?
     @State private var activeChatConversation: Conversation?
 
     private var filteredListings: [Listing] {
-        var results = listingManager.listings
+        let blocked = Set(authManager.blockedUsers)
+        var results = listingManager.listings.filter { !blocked.contains($0.sellerUID) }
 
         if let category = selectedCategory {
             results = results.filter { $0.category == category }
@@ -39,66 +49,72 @@ struct MarketplaceView: View {
         return results
     }
 
+    private var filteredServices: [ServiceListing] {
+        let blocked = Set(authManager.blockedUsers)
+        var results = listingManager.serviceListings.filter { !blocked.contains($0.sellerUID) }
+
+        if let category = selectedServiceCategory {
+            results = results.filter { $0.category == category }
+        }
+
+        if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            let query = searchText.lowercased()
+            results = results.filter {
+                $0.title.lowercased().contains(query)
+                || $0.description.lowercased().contains(query)
+                || $0.sellerUsername.lowercased().contains(query)
+            }
+        }
+
+        return results
+    }
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
-                // Category filter
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        categoryChip("All", category: nil)
-                        ForEach(ListingCategory.allCases, id: \.self) { cat in
-                            categoryChip(cat.rawValue, category: cat)
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
+                // Goods / Services toggle
+                HStack(spacing: 0) {
+                    segmentButton("Goods", segment: .goods)
+                    segmentButton("Services", segment: .services)
+                }
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(height: 1)
                 }
 
-                if filteredListings.isEmpty {
-                    Spacer()
-                    Image(systemName: "guitars")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                    Text("No listings yet")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .padding(.top, 4)
-                    Text("Listings you and others post will appear here.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Spacer()
+                if selectedSegment == .goods {
+                    goodsContent
                 } else {
-                    ScrollView {
-                        LazyVGrid(
-                            columns: [
-                                GridItem(.flexible(), spacing: 12),
-                                GridItem(.flexible(), spacing: 12)
-                            ],
-                            spacing: 12
-                        ) {
-                            ForEach(filteredListings) { listing in
-                                NavigationLink {
-                                    ListingDetailView(listing: listing)
-                                } label: {
-                                    listingCard(listing)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 4)
-                        .padding(.bottom, 16)
-                    }
+                    servicesContent
                 }
             }
-            .navigationTitle("Marketplace")
-            .searchable(text: $searchText, prompt: "Search gear and instruments")
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("backline")
+                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .tracking(-0.2)
+                }
+
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: selectedSegment == .goods ? "Search gear and instruments" : "Search services")
+            .onSubmit(of: .search) {
+                if selectedSegment == .goods {
+                    BLAnalytics.searchListings(query: searchText)
+                } else {
+                    BLAnalytics.searchServices(query: searchText)
+                }
+            }
             .task {
-                await listingManager.fetchListings()
+                async let goods: () = listingManager.fetchListings()
+                async let services: () = listingManager.fetchServiceListings()
+                _ = await (goods, services)
+                // Fetch profile photos for service listers
+                let serviceUIDs = listingManager.serviceListings.map(\.sellerUID)
+                await listingManager.fetchProfilePhotos(for: serviceUIDs)
             }
-            .refreshable {
-                await listingManager.fetchListings()
-            }
+
             .navigationDestination(isPresented: $navigateToChat) {
                 if let convId = activeChatConversationId,
                    let conv = activeChatConversation {
@@ -116,155 +132,272 @@ struct MarketplaceView: View {
             }
         }
     }
-    
-    //TODO: add a map view in the top right corner. This will show listings on a map but not exact addresses for privacy.
+
+    // MARK: - Goods Content
+
+    private var goodsContent: some View {
+        VStack(spacing: 0) {
+            // Category filter
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    categoryChip("All", category: nil)
+                    ForEach(ListingCategory.allCases, id: \.self) { cat in
+                        categoryChip(cat.rawValue, category: cat)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+            }
+
+            if filteredListings.isEmpty {
+                Spacer()
+                Image(systemName: "guitars")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text("No listings yet")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(.top, 4)
+                Text("Listings you and others post will appear here.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
+                        ],
+                        spacing: 12
+                    ) {
+                        ForEach(filteredListings) { listing in
+                            NavigationLink {
+                                ListingDetailView(listing: listing)
+                            } label: {
+                                listingCard(listing)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+                    .padding(.bottom, 100)
+                }
+                .refreshable {
+                    await listingManager.fetchListings()
+                }
+            }
+        }
+    }
+
+    // MARK: - Services Content
+
+    private var servicesContent: some View {
+        VStack(spacing: 0) {
+            // Service category filter
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    serviceCategoryChip("All", category: nil)
+                    ForEach(ServiceCategory.allCases, id: \.self) { cat in
+                        serviceCategoryChip(cat.rawValue, category: cat)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+            }
+
+            if filteredServices.isEmpty {
+                Spacer()
+                Image(systemName: "wrench.and.screwdriver")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text("No services yet")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(.top, 4)
+                Text("Services posted by musicians will appear here.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
+                        ],
+                        spacing: 12
+                    ) {
+                        ForEach(filteredServices) { service in
+                            NavigationLink(value: service) {
+                                serviceCard(service)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+                    .padding(.bottom, 100)
+                }
+                .refreshable {
+                    await listingManager.fetchServiceListings()
+                }
+            }
+        }
+    }
 
     // MARK: - Category Chip
 
     private func categoryChip(_ title: String, category: ListingCategory?) -> some View {
-        Button {
-            selectedCategory = category
-        } label: {
-            Text(title)
-                .font(.caption2)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(selectedCategory == category ? .white : .clear)
-                .foregroundStyle(selectedCategory == category ? .black : .primary)
-                .overlay(
-                    Capsule()
-                        .stroke(selectedCategory == category ? .white : .white.opacity(0.2), lineWidth: 0.5)
-                )
-                .clipShape(Capsule())
-        }
+        BroadcastChip(
+            title: title,
+            isSelected: selectedCategory == category,
+            action: { selectedCategory = category }
+        )
     }
 
     // MARK: - Listing Card
 
     private func listingCard(_ listing: Listing) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Photo
+        VStack(alignment: .leading, spacing: 0) {
+            // Square photo
             Color.clear
-                .frame(height: 120)
+                .aspectRatio(1, contentMode: .fit)
                 .overlay {
                     if let firstURL = listing.photoURLs.first, let url = URL(string: firstURL) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            case .failure:
-                                imagePlaceholder
-                            case .empty:
-                                ProgressView()
-                            @unknown default:
-                                imagePlaceholder
-                            }
+                        CachedAsyncImage(url: url) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Rectangle().fill(Color(.systemGray6))
                         }
                     } else {
-                        imagePlaceholder
+                        Rectangle().fill(Color(.systemGray6))
+                            .overlay {
+                                Image(systemName: "photo")
+                                    .foregroundStyle(Color(.systemGray4))
+                            }
                     }
                 }
                 .clipped()
 
             // Info
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(listing.title)
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
+                    .padding(.top, 8)
 
-                // Price info
-                if let price = listing.price {
-                    Text("$\(price, specifier: "%.0f")")
-                        .font(.caption)
-                        .foregroundStyle(ThemeColor.green)
-                }
-                if let rentPrice = listing.rentPrice, !rentPrice.isEmpty {
-                    Text(rentPrice)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-
-                // Listing type tags
-                HStack(spacing: 3) {
-                    ForEach(Array(listing.listingTypes.enumerated()), id: \.element) { index, type in
-                        let color = ThemeColor.cycle(index)
-                        Text(type.rawValue)
-                            .font(.system(size: 8))
-                            .foregroundStyle(color)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(color.opacity(0.15))
-                            .clipShape(Capsule())
+                HStack(spacing: 6) {
+                    if let price = listing.price {
+                        Text("$\(price, specifier: "%.0f")")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundStyle(ThemeColor.green)
                     }
+                    if let rentPrice = listing.rentPrice, !rentPrice.isEmpty {
+                        Text(rentPrice)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundStyle(ThemeColor.cyan)
+                    }
+                    Spacer()
+                    Text(listing.condition.rawValue)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .tracking(0.4)
                 }
 
-                Text(listing.location)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Text("@\(listing.sellerUsername)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.55))
+                    Text("·")
+                        .foregroundStyle(.white.opacity(0.4))
+                    Text(listing.location)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(1)
+                }
             }
-            .padding(.horizontal, 8)
             .padding(.bottom, 4)
-
-            if listing.sellerUID != authManager.currentUser?.uid {
-                Button {
-                    Task {
-                        guard let uid = authManager.currentUser?.uid,
-                              let username = authManager.username else { return }
-                        if let convId = await messagesManager.startConversation(
-                            currentUID: uid,
-                            currentUsername: username,
-                            otherUID: listing.sellerUID,
-                            otherUsername: listing.sellerUsername
-                        ) {
-                            let conversation = messagesManager.conversations.first(where: { $0.id == convId })
-                                ?? Conversation(
-                                    id: convId,
-                                    participants: [uid, listing.sellerUID],
-                                    participantUsernames: [uid: username, listing.sellerUID: listing.sellerUsername],
-                                    lastMessage: "",
-                                    lastMessageAt: Date(),
-                                    lastMessageSenderUID: "",
-                                    lastReadAt: [:]
-                                )
-                            activeChatConversationId = convId
-                            activeChatConversation = conversation
-                            navigateToChat = true
-                        }
-                    }
-                } label: {
-                    Text("Message Seller")
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
-                        )
-                }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 8)
-            } else {
-                Spacer().frame(height: 4)
-            }
         }
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(.white.opacity(0.2), lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private var imagePlaceholder: some View {
-        Rectangle()
-            .fill(Color(.systemGray4))
-            .overlay {
-                Image(systemName: "photo")
-                    .foregroundStyle(.secondary)
+    // MARK: - Service Category Chip
+
+    private func serviceCategoryChip(_ title: String, category: ServiceCategory?) -> some View {
+        BroadcastChip(
+            title: title,
+            isSelected: selectedServiceCategory == category,
+            action: { selectedServiceCategory = category }
+        )
+    }
+
+    // MARK: - Service Card
+
+    private func serviceCard(_ service: ServiceListing) -> some View {
+        HStack(spacing: 10) {
+            // Small profile photo
+            if let urlString = listingManager.profilePhotos[service.sellerUID],
+               let url = URL(string: urlString) {
+                CachedAsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Rectangle().fill(Color(.systemGray5))
+                }
+                .frame(width: 36, height: 36)
+                .clipped()
+            } else {
+                Rectangle()
+                    .fill(Color(.systemGray5))
+                    .frame(width: 36, height: 36)
+                    .overlay {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color(.systemGray3))
+                    }
             }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(service.title)
+                    .font(.system(size: 13, weight: .bold))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                Text(service.rate)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(ThemeColor.green)
+
+                Text("@\(service.sellerUsername)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .overlay(
+            Rectangle()
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        )
+    }
+
+    private func segmentButton(_ title: String, segment: MarketplaceSegment) -> some View {
+        Button {
+            selectedSegment = segment
+        } label: {
+            VStack(spacing: 6) {
+                Text(title)
+                    .font(.system(size: 12, weight: selectedSegment == segment ? .bold : .medium, design: .monospaced))
+                    .tracking(0.4)
+                    .foregroundStyle(selectedSegment == segment ? .white : .white.opacity(0.45))
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 10)
+
+                Rectangle()
+                    .fill(selectedSegment == segment ? ThemeColor.cyan : .clear)
+                    .frame(height: 2)
+            }
+        }
+        .accessibilityLabel(title)
     }
 }

@@ -13,10 +13,17 @@ struct ConversationsView: View {
     @Environment(AuthenticationManager.self) private var authManager
     @Environment(MessagesManager.self) private var messagesManager
 
+    private var visibleConversations: [Conversation] {
+        let blocked = Set(authManager.blockedUsers)
+        return messagesManager.conversations.filter { conversation in
+            !conversation.participants.contains(where: { blocked.contains($0) })
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Group {
-                if messagesManager.conversations.isEmpty {
+                if visibleConversations.isEmpty {
                     VStack {
                         Spacer()
                         Image(systemName: "bubble.left.and.bubble.right")
@@ -32,7 +39,7 @@ struct ConversationsView: View {
                         Spacer()
                     }
                 } else {
-                    List(messagesManager.conversations) { conversation in
+                    List(visibleConversations) { conversation in
                         NavigationLink {
                             ChatView(conversationId: conversation.id, conversation: conversation)
                         } label: {
@@ -44,6 +51,7 @@ struct ConversationsView: View {
             }
             .navigationTitle("Messages")
             .task {
+                BLAnalytics.viewConversations()
                 if let uid = authManager.currentUser?.uid {
                     messagesManager.listenToConversations(forUID: uid)
                 }

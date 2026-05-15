@@ -7,32 +7,64 @@
 
 import SwiftUI
 import FirebaseCore
+import FirebaseCrashlytics
+import FirebaseMessaging
 import UserNotifications
 #if canImport(GoogleSignIn)
 import GoogleSignIn
 #endif
 
-// MARK: - Primary Theme Colors
+// MARK: - Primary Theme Colors (Broadcast Signals palette)
 
 enum ThemeColor {
-    static let blue = Color(red: 0, green: 0, blue: 1)
-    static let red = Color(red: 1, green: 0, blue: 0)
-    static let yellow = Color(red: 1, green: 1, blue: 0)
-    static let green = Color(red: 0, green: 0.7, blue: 0)
+    // V3 Broadcast Signals — exact hex values
+    static let red    = Color(hex: 0xFF3B30)
+    static let green  = Color(hex: 0x30D158)
+    static let cyan   = Color(hex: 0x32D8E0)
+    static let yellow = Color(hex: 0xFFD60A)
 
-    static let all: [Color] = [blue, red, yellow, green]
+    // Keep "blue" as an alias for cyan (backward compat)
+    static let blue = cyan
+
+    static let all: [Color] = [cyan, red, yellow, green]
 
     /// Returns a color cycling through the four primaries by index.
     static func cycle(_ index: Int) -> Color {
         all[index % all.count]
     }
+
+    // Shared border / divider opacity
+    static let hairline = Color.white.opacity(0.10)
+    static let subtleBorder = Color.white.opacity(0.14)
 }
 
-class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+extension Color {
+    init(hex: UInt, alpha: Double = 1.0) {
+        self.init(
+            .sRGB,
+            red:   Double((hex >> 16) & 0xFF) / 255.0,
+            green: Double((hex >> 8)  & 0xFF) / 255.0,
+            blue:  Double(hex         & 0xFF) / 255.0,
+            opacity: alpha
+        )
+    }
+}
+
+// MARK: - Safe Logging
+
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
     var authManager: AuthenticationManager!
     var listingManager: ListingManager!
     var messagesManager: MessagesManager!
+    var connectionsManager: ConnectionsManager!
+    var deepLinkRouter: DeepLinkRouter!
+    var networkMonitor: NetworkMonitor!
 
+    override init() {
+        super.init()
+        blPrint("🧩 AppDelegate INIT")
+    }
+    
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -41,9 +73,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         authManager = AuthenticationManager()
         listingManager = ListingManager()
         messagesManager = MessagesManager()
+        connectionsManager = ConnectionsManager()
+        deepLinkRouter = DeepLinkRouter()
+        networkMonitor = NetworkMonitor()
 
         // Push notifications
         UNUserNotificationCenter.current().delegate = self
+        Messaging.messaging().delegate = self
         requestNotificationPermission(application)
 
         return true
@@ -52,31 +88,69 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     // MARK: - Notification Permission
 
     private func requestNotificationPermission(_ application: UIApplication) {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-            if granted {
-                DispatchQueue.main.async {
-                    application.registerForRemoteNotifications()
-                }
+
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+
+            blPrint("🔔 Permission granted:", granted)
+            if let error = error {
+                blPrint("Permission error:", error)
+            }
+
+            DispatchQueue.main.async {
+                blPrint("📲 Registering for remote notifications (ALWAYS)")
+                application.registerForRemoteNotifications()
             }
         }
     }
 
-    // MARK: - URL Handling (Google Sign-In)
-
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        #if canImport(GoogleSignIn)
-        return GIDSignIn.sharedInstance.handle(url)
-        #else
-        return false
-        #endif
-    }
+    
 
     // MARK: - APNs Token
-    // Once you add FirebaseMessaging to your target's frameworks, uncomment the
-    // Messaging lines below to enable FCM token registration.
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        // Messaging.messaging().apnsToken = deviceToken
+        
+        blPrint("📱 APNs Token: \(deviceToken.map { String(format: "%02.2hhx", $0) }.joined())")
+        
+        Messaging.messaging().setAPNSToken(deviceToken, type: .unknown)
+        
+        Messaging.messaging().token { token, error in
+                if let error = error {
+                    blPrint("FCM error after APNs: \(error)")
+                } else {
+                    blPrint("🔥 FCM TOKEN (after APNs): \(token ?? "nil")")
+                }
+            }
+    }
+    
+    
+    
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        blPrint("❌ APNs FAILED:", error)
+    }
+
+    // MARK: - FCM Token
+
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        blPrint("Firebase registration token: \(String(describing: fcmToken))")
+        
+        guard let token = fcmToken else {
+            blPrint("⚠️ Received nil FCM token")
+            return
+        }
+        
+        // This is where you actually see it in the console!
+        blPrint("🔥 FCM TOKEN RECEIVED: \(token)")
+        
+        authManager?.updateFCMToken(token)
+        
+        // Optional: If you need to send it to your server, do it here
+        let dataDict: [String: String] = ["token": token]
+        NotificationCenter.default.post(
+            name: Notification.Name("FCMToken"),
+            object: nil,
+            userInfo: dataDict
+        )
     }
 
     // MARK: - Foreground Notifications
@@ -87,6 +161,22 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         completionHandler([.banner, .badge, .sound])
+    }
+
+    // MARK: - Notification Tap
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        if let type = userInfo["type"] as? String,
+           type == "message",
+           let conversationId = userInfo["conversationId"] as? String {
+            deepLinkRouter.pendingDeepLink = .chat(conversationId: conversationId)
+        }
+        completionHandler()
     }
 }
 
@@ -101,7 +191,16 @@ struct backlineApp: App {
                 .environment(delegate.authManager!)
                 .environment(delegate.listingManager!)
                 .environment(delegate.messagesManager!)
+                .environment(delegate.connectionsManager!)
+                .environment(delegate.deepLinkRouter!)
+                .environment(delegate.networkMonitor!)
                 .preferredColorScheme(.dark)
+                .onOpenURL { url in
+                    #if canImport(GoogleSignIn)
+                    GIDSignIn.sharedInstance.handle(url)
+                    #endif
+                    delegate.deepLinkRouter.handle(url)
+                }
         }
     }
 }

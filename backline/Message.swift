@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - Conversation
 
-struct Conversation: Identifiable, Codable {
+struct Conversation: Identifiable, Codable, Equatable, Hashable {
     var id: String
     var participants: [String]
     var participantUsernames: [String: String]
@@ -25,6 +25,13 @@ struct Conversation: Identifiable, Codable {
         guard let readDate = lastReadAt[uid] else { return true }
         return lastMessageAt > readDate
     }
+}
+
+// MARK: - Chat Destination (for deep link navigation)
+
+struct ChatDestination: Hashable {
+    let conversationId: String
+    let conversation: Conversation
 }
 
 // MARK: - Message

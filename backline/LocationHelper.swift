@@ -22,11 +22,18 @@ enum LocationHelper {
         }
     }
 
+    /// Held to keep the delegate alive until the continuation resumes.
+    private static var activeDelegate: Delegate?
+
     /// Requests when-in-use authorization (if needed) and returns a single location fix.
     @MainActor
     static func requestCurrentLocation() async throws -> CLLocationCoordinate2D {
         try await withCheckedThrowingContinuation { continuation in
-            let delegate = Delegate(continuation: continuation)
+            let delegate = Delegate(continuation: continuation) {
+                // Clean up the retained reference once finished
+                LocationHelper.activeDelegate = nil
+            }
+            activeDelegate = delegate
             delegate.start()
         }
     }
@@ -37,9 +44,11 @@ enum LocationHelper {
         private let manager = CLLocationManager()
         private var continuation: CheckedContinuation<CLLocationCoordinate2D, Error>?
         private var didResume = false
+        private let onFinish: () -> Void
 
-        init(continuation: CheckedContinuation<CLLocationCoordinate2D, Error>) {
+        init(continuation: CheckedContinuation<CLLocationCoordinate2D, Error>, onFinish: @escaping () -> Void) {
             self.continuation = continuation
+            self.onFinish = onFinish
             super.init()
             manager.delegate = self
             manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
@@ -85,6 +94,8 @@ enum LocationHelper {
             case .success(let coord): continuation?.resume(returning: coord)
             case .failure(let err): continuation?.resume(throwing: err)
             }
+            continuation = nil
+            onFinish()
         }
     }
 }

@@ -2,7 +2,7 @@
   "name": "backline-functions",
   "description": "Cloud Functions for backline push notifications",
   "engines": {
-    "node": "18"
+    "node": "20"
   },
   "main": "index.js",
   "dependencies": {

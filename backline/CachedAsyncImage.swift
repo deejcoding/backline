@@ -6,59 +6,48 @@
 //
 
 import SwiftUI
+import Kingfisher
 
-/// A simple in-memory image cache shared across the app.
-final class ImageCache {
-    static let shared = ImageCache()
-    private var cache = NSCache<NSString, UIImage>()
-
-    private init() {
-        cache.countLimit = 200
-        cache.totalCostLimit = 50 * 1024 * 1024 // 50 MB
-    }
-
-    func get(_ url: String) -> UIImage? {
-        cache.object(forKey: url as NSString)
-    }
-
-    func set(_ url: String, image: UIImage) {
-        let cost = image.jpegData(compressionQuality: 1)?.count ?? 0
-        cache.setObject(image, forKey: url as NSString, cost: cost)
-    }
-}
-
-/// Drop-in replacement for AsyncImage that caches downloaded images in memory.
+/// Drop-in cached image view powered by Kingfisher.
+/// Provides memory + disk caching, downsampled decoding, and fade-in transitions
+/// while keeping the same `(Image) -> Content` closure API used throughout the app.
 struct CachedAsyncImage<Content: View, Placeholder: View>: View {
 
     let url: URL?
+    let accessibilityDescription: String?
     let content: (Image) -> Content
     let placeholder: () -> Placeholder
 
-    @State private var uiImage: UIImage?
+    @State private var loadedImage: UIImage?
     @State private var isLoading = true
 
     init(
         url: URL?,
+        accessibilityDescription: String? = nil,
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.url = url
+        self.accessibilityDescription = accessibilityDescription
         self.content = content
         self.placeholder = placeholder
     }
 
     var body: some View {
         Group {
-            if let uiImage {
-                content(Image(uiImage: uiImage))
-            } else if isLoading {
-                placeholder()
+            if let loadedImage {
+                content(Image(uiImage: loadedImage))
             } else {
                 placeholder()
             }
         }
         .task(id: url) {
             await loadImage()
+        }
+        .ifLet(accessibilityDescription) { view, description in
+            view
+                .accessibilityLabel(description)
+                .accessibilityAddTraits(.isImage)
         }
     }
 
@@ -68,26 +57,26 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             return
         }
 
-        let urlString = url.absoluteString
-
-        // Check cache first
-        if let cached = ImageCache.shared.get(urlString) {
-            self.uiImage = cached
-            self.isLoading = false
-            return
-        }
-
-        // Download
+        // Use Kingfisher's cache-aware retrieval (memory + disk)
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            if let image = UIImage(data: data) {
-                ImageCache.shared.set(urlString, image: image)
-                self.uiImage = image
-            }
+            let result = try await KingfisherManager.shared.retrieveImage(with: url)
+            self.loadedImage = result.image
         } catch {
-            // Failed to load
+            // Failed to load — placeholder stays visible
         }
-
         isLoading = false
+    }
+}
+
+// MARK: - Conditional modifier helper
+
+extension View {
+    @ViewBuilder
+    func ifLet<T, Modified: View>(_ value: T?, transform: (Self, T) -> Modified) -> some View {
+        if let value {
+            transform(self, value)
+        } else {
+            self
+        }
     }
 }

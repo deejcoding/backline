@@ -15,6 +15,13 @@ struct ConnectionRequestsView: View {
 
     var body: some View {
         List {
+            if let error = connectionsManager.errorMessage {
+                Text(error)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(ThemeColor.red)
+                    .listRowBackground(Color.clear)
+            }
+
             if connectionsManager.incomingRequests.isEmpty {
                 ContentUnavailableView(
                     "No Pending Requests",
@@ -29,6 +36,7 @@ struct ConnectionRequestsView: View {
         }
         .navigationTitle("Connection Requests")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { BLAnalytics.viewConnectionRequests() }
     }
 
     private func requestRow(_ request: Connection) -> some View {
@@ -40,10 +48,10 @@ struct ConnectionRequestsView: View {
                 CachedAsyncImage(url: url) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
-                    Circle().fill(Color(.systemGray5))
+                    Rectangle().fill(Color(.systemGray5))
                 }
                 .frame(width: 44, height: 44)
-                .clipShape(Circle())
+                .clipShape(Rectangle())
             } else {
                 Image(systemName: "person.circle.fill")
                     .resizable()
@@ -52,7 +60,7 @@ struct ConnectionRequestsView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("@\(request.fromUsername)")
+                Text("@\(request.participantUsernames[request.fromUID] ?? "Unknown")")
                     .font(.subheadline)
                     .fontWeight(.medium)
 
@@ -70,13 +78,12 @@ struct ConnectionRequestsView: View {
                     Task { await connectionsManager.acceptRequest(request.id) }
                 } label: {
                     Text("Accept")
-                        .font(.caption2)
-                        .fontWeight(.medium)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(ThemeColor.blue)
                         .foregroundStyle(.black)
-                        .clipShape(Capsule())
+                        .clipShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -84,14 +91,14 @@ struct ConnectionRequestsView: View {
                     Task { await connectionsManager.rejectRequest(request.id) }
                 } label: {
                     Text("Decline")
-                        .font(.caption2)
-                        .fontWeight(.medium)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .overlay(Capsule().stroke(.white.opacity(0.2), lineWidth: 0.5))
+                        .overlay(Rectangle().stroke(.white.opacity(0.2), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
+            .fixedSize(horizontal: true, vertical: false)
         }
     }
 }

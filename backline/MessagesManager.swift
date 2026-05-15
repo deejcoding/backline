@@ -19,6 +19,23 @@ final class MessagesManager {
 
     private let db = Firestore.firestore()
 
+    // MARK: - Retry Helper
+
+    private func withRetry<T>(maxAttempts: Int = 3, operation: () async throws -> T) async throws -> T {
+        var lastError: Error?
+        for attempt in 1...maxAttempts {
+            do {
+                return try await operation()
+            } catch {
+                lastError = error
+                if attempt < maxAttempts {
+                    try? await Task.sleep(for: .seconds(Double(attempt)))
+                }
+            }
+        }
+        throw lastError ?? NSError(domain: "MessagesManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unknown error during retry operation"])
+    }
+
     // MARK: - Listeners
 
     private var conversationsListener: ListenerRegistration?
@@ -126,9 +143,11 @@ final class MessagesManager {
         currentUID: String,
         currentUsername: String,
         otherUID: String,
-        otherUsername: String
+        otherUsername: String,
+        initialMessage: String? = nil
     ) async -> String? {
         do {
+            var conversationId: String?
             let snapshot = try await db.collection("conversations")
                 .whereField("participants", arrayContains: currentUID)
                 .getDocuments()
@@ -137,28 +156,38 @@ final class MessagesManager {
                 let data = doc.data()
                 if let participants = data["participants"] as? [String],
                    participants.contains(otherUID) {
-                    return doc.documentID
+                    conversationId = doc.documentID
+                    break
                 }
             }
 
-            // No existing conversation — create a new one
-            let conversationRef = db.collection("conversations").document()
-            let data: [String: Any] = [
-                "participants": [currentUID, otherUID],
-                "participantUsernames": [
-                    currentUID: currentUsername,
-                    otherUID: otherUsername
-                ],
-                "lastMessage": "",
-                "lastMessageAt": FieldValue.serverTimestamp(),
-                "lastMessageSenderUID": "",
-                "lastReadAt": [
-                    currentUID: FieldValue.serverTimestamp(),
-                    otherUID: FieldValue.serverTimestamp()
+            if conversationId == nil {
+                // No existing conversation — create a new one
+                let conversationRef = db.collection("conversations").document()
+                let data: [String: Any] = [
+                    "participants": [currentUID, otherUID],
+                    "participantUsernames": [
+                        currentUID: currentUsername,
+                        otherUID: otherUsername
+                    ],
+                    "lastMessage": "",
+                    "lastMessageAt": FieldValue.serverTimestamp(),
+                    "lastMessageSenderUID": "",
+                    "lastReadAt": [
+                        currentUID: FieldValue.serverTimestamp(),
+                        otherUID: FieldValue.serverTimestamp()
+                    ]
                 ]
-            ]
-            try await conversationRef.setData(data)
-            return conversationRef.documentID
+                try await withRetry { try await conversationRef.setData(data) }
+                BLAnalytics.startConversation()
+                conversationId = conversationRef.documentID
+            }
+
+            if let conversationId, let initialMessage {
+                await sendMessage(conversationId: conversationId, senderUID: currentUID, text: initialMessage)
+            }
+
+            return conversationId
         } catch {
             errorMessage = error.localizedDescription
             return nil
@@ -175,6 +204,12 @@ final class MessagesManager {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
 
+        // Rate limit: 20 messages per 30 seconds
+        guard RateLimiter.shared.allow(key: "sendMessage_\(senderUID)", maxAttempts: 20, window: 30) else {
+            errorMessage = "You're sending messages too fast. Please wait a moment."
+            return
+        }
+
         do {
             let messageRef = db.collection("conversations")
                 .document(conversationId)
@@ -185,15 +220,20 @@ final class MessagesManager {
                 "text": trimmedText,
                 "sentAt": FieldValue.serverTimestamp()
             ]
-            try await messageRef.setData(messageData)
+            try await withRetry {
+                try await messageRef.setData(messageData)
+            }
 
-            try await db.collection("conversations")
-                .document(conversationId)
-                .updateData([
-                    "lastMessage": trimmedText,
-                    "lastMessageAt": FieldValue.serverTimestamp(),
-                    "lastMessageSenderUID": senderUID
-                ])
+            try await withRetry {
+                try await self.db.collection("conversations")
+                    .document(conversationId)
+                    .updateData([
+                        "lastMessage": trimmedText,
+                        "lastMessageAt": FieldValue.serverTimestamp(),
+                        "lastMessageSenderUID": senderUID
+                    ])
+            }
+            BLAnalytics.sendMessage()
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -21,6 +21,7 @@ struct EditServiceListingView: View {
     @State private var description: String
     @State private var portfolioURL: String
     @State private var rate: String
+    @State private var contactInfoWarning: String?
 
     init(service: ServiceListing) {
         self.service = service
@@ -43,60 +44,42 @@ struct EditServiceListingView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    VStack(spacing: 16) {
-                        TextField("Service Title", text: $title)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(Rectangle())
+            Form {
+                Section {
+                    TextField("Service Title", text: $title)
 
-                        HStack {
-                            Text("Category")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Picker("Category", selection: $category) {
-                                ForEach(ServiceCategory.allCases, id: \.self) { cat in
-                                    Text(cat.rawValue).tag(cat)
-                                }
-                            }
-                            .labelsHidden()
+                    Picker("Category", selection: $category) {
+                        ForEach(ServiceCategory.allCases, id: \.self) { cat in
+                            Text(cat.rawValue).tag(cat)
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
-
-                        TextField("Description & Experience", text: $description, axis: .vertical)
-                            .lineLimit(4...10)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(Rectangle())
-
-                        TextField("Portfolio Link (optional)", text: $portfolioURL)
-                            .keyboardType(.URL)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(Rectangle())
-
-                        TextField("Rate (e.g. $50/hr, $200/session)", text: $rate)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(Rectangle())
                     }
-                    .padding(.horizontal)
+                }
 
-                    // Error
+                Section {
+                    TextField("Description & Experience", text: $description, axis: .vertical)
+                        .lineLimit(4...10)
+
+                    TextField("Portfolio Link (optional)", text: $portfolioURL)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    TextField("Rate (e.g. $50/hr, $200/session)", text: $rate)
+                }
+
+                Section {
+                    if let warning = contactInfoWarning {
+                        Text(warning)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+
                     if let errorMessage = listingManager.errorMessage {
                         Text(errorMessage)
                             .font(.caption)
                             .foregroundStyle(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
                     }
 
-                    // Save
                     Button {
                         Task { await saveChanges() }
                     } label: {
@@ -110,15 +93,12 @@ struct EditServiceListingView: View {
                         }
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(formIsValid && !listingManager.isLoading ? ThemeColor.blue : Color.gray)
-                        .foregroundStyle(.white)
-                        .clipShape(Rectangle())
+                        .padding(.vertical, 4)
                     }
+                    .listRowBackground(formIsValid && !listingManager.isLoading ? ThemeColor.blue : Color.gray)
+                    .foregroundStyle(.white)
                     .disabled(!formIsValid || listingManager.isLoading)
-                    .padding(.horizontal)
                 }
-                .padding(.vertical)
             }
             .navigationTitle("Edit Service")
             .navigationBarTitleDisplayMode(.inline)
@@ -128,6 +108,10 @@ struct EditServiceListingView: View {
                         dismiss()
                     }
                 }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) }
+                }
             }
         }
     }
@@ -135,6 +119,18 @@ struct EditServiceListingView: View {
     // MARK: - Save
 
     private func saveChanges() async {
+        contactInfoWarning = nil
+
+        let fieldsToCheck = [title, description, rate]
+        if fieldsToCheck.contains(where: { ContactInfoFilter.containsContactInfo($0) }) {
+            contactInfoWarning = "Please don't include phone numbers or email addresses. Use in-app messaging instead."
+            return
+        }
+        if fieldsToCheck.contains(where: { ProfanityFilter.containsProfanity($0) }) {
+            contactInfoWarning = "Your listing contains inappropriate language. Please revise and try again."
+            return
+        }
+
         let trimmedPortfolio = portfolioURL.trimmingCharacters(in: .whitespaces)
 
         await listingManager.updateServiceListing(
@@ -147,6 +143,7 @@ struct EditServiceListingView: View {
         )
 
         if listingManager.errorMessage == nil {
+            BLAnalytics.editServiceListing(serviceId: service.id)
             dismiss()
         }
     }

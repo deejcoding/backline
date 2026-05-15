@@ -67,7 +67,9 @@ final class SpotifyManager {
         accessToken = nil
         tokenExpiry = nil
 
-        let url = URL(string: "https://accounts.spotify.com/api/token")!
+        guard let url = URL(string: "https://accounts.spotify.com/api/token") else {
+            throw NSError(domain: "SpotifyManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid Spotify Token URL"])
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -85,7 +87,7 @@ final class SpotifyManager {
         }
 
         if httpResponse.statusCode != 200 {
-            print("[Spotify] Token failed: \(httpResponse.statusCode)")
+            blPrint("[Spotify] Token failed: \(httpResponse.statusCode)")
             throw URLError(.userAuthenticationRequired)
         }
 
@@ -96,8 +98,8 @@ final class SpotifyManager {
             throw URLError(.userAuthenticationRequired)
         }
 
-        accessToken = token
-        tokenExpiry = Date().addingTimeInterval(TimeInterval(min(expiresIn - 300, 1800)))
+        self.accessToken = token
+        self.tokenExpiry = Date().addingTimeInterval(Double(expiresIn))
         return token
     }
 
@@ -105,7 +107,7 @@ final class SpotifyManager {
         do {
             _ = try await fetchAccessToken(forceRefresh: accessToken == nil)
         } catch {
-            print("[Spotify] Pre-refresh failed: \(error)")
+            blPrint("[Spotify] Pre-refresh failed: \(error)")
         }
     }
 
@@ -125,7 +127,7 @@ final class SpotifyManager {
             let results = try await performSearch(query: trimmed, type: type, isRetry: false)
             searchResults = results
         } catch {
-            print("[Spotify] Search failed: \(error)")
+            blPrint("[Spotify] Search failed: \(error)")
             searchResults = []
         }
     }

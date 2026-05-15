@@ -12,9 +12,21 @@ struct FeaturedSongCard: View {
     let song: SpotifyTrack
     private var spotify: SpotifyManager { SpotifyManager.shared }
 
+    private var subtitle: String {
+        switch song.itemType {
+        case .track:
+            return song.artistName
+        case .artist:
+            return song.artistName.isEmpty ? "Artist" : song.artistName
+        case .album:
+            let parts = [song.artistName, song.albumName].filter { !$0.isEmpty }
+            return parts.joined(separator: " · ")
+        }
+    }
+
     var body: some View {
         HStack(spacing: 10) {
-            // Album art
+            // Square album art
             if let urlString = song.albumImageURL, let url = URL(string: urlString) {
                 CachedAsyncImage(url: url) { image in
                     image.resizable().scaledToFill()
@@ -22,48 +34,55 @@ struct FeaturedSongCard: View {
                     Rectangle().fill(Color(.systemGray5))
                 }
                 .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .clipped()
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(song.name)
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
-                Text(song.artistName)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                Text(subtitle)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.55))
                     .lineLimit(1)
             }
 
             Spacer()
 
-            // Play preview button
-            if song.previewURL != nil {
+            // Play preview button (tracks only)
+            if song.itemType == .track, song.previewURL != nil {
                 Button {
                     spotify.playPreview(for: song)
                 } label: {
                     Image(systemName: spotify.currentlyPlayingTrackID == song.id && spotify.isPlaying
-                          ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.title2)
+                          ? "pause.fill" : "play.fill")
+                        .font(.system(size: 14))
                         .foregroundStyle(ThemeColor.green)
+                        .frame(width: 32, height: 32)
+                        .overlay(
+                            Rectangle()
+                                .stroke(ThemeColor.green.opacity(0.3), lineWidth: 1)
+                        )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(spotify.currentlyPlayingTrackID == song.id && spotify.isPlaying
+                    ? "Pause \(song.name)" : "Play \(song.name) preview")
             }
 
             // Open in Spotify
             if let url = URL(string: song.externalURL) {
                 Link(destination: url) {
-                    Image(systemName: "arrow.up.right.circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.45))
                 }
+                .accessibilityLabel("Open \(song.name) in Spotify")
             }
         }
         .padding(10)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(.white.opacity(0.2), lineWidth: 0.5)
+            Rectangle()
+                .stroke(.white.opacity(0.14), lineWidth: 1)
         )
     }
 }

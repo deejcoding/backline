@@ -22,6 +22,9 @@ struct ISOPostDetailView: View {
     @State private var activeChatConversation: Conversation?
     @State private var showDeleteConfirmation = false
     @State private var showEditPost = false
+    @State private var showReportSheet = false
+    @State private var showBlockConfirmation = false
+    @State private var showGuestPrompt = false
 
     private var isOwnPost: Bool {
         post.posterUID == authManager.currentUser?.uid
@@ -32,73 +35,117 @@ struct ISOPostDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
 
                 // Header
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(post.roleNeeded)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Spacer()
-                        Text(post.category.rawValue)
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(ThemeColor.blue.opacity(0.15))
-                            .foregroundStyle(ThemeColor.blue)
-                            .clipShape(Capsule())
-                    }
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("LOOKING FOR")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .tracking(0.8)
+                                .foregroundStyle(ThemeColor.cyan)
 
-                    if post.isExpired {
-                        Text("Expired")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 10)
+                            Text(post.roleNeeded)
+                                .font(.system(size: 24, weight: .bold))
+                                .tracking(-0.3)
+                        }
+                        Spacer()
+                        Text(post.category.rawValue.uppercased())
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(0.5)
+                            .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.red.opacity(0.15))
-                            .foregroundStyle(.red)
-                            .clipShape(Capsule())
+                            .foregroundStyle(ThemeColor.cyan)
+                            .overlay(
+                                Rectangle()
+                                    .stroke(ThemeColor.cyan.opacity(0.3), lineWidth: 1)
+                            )
                     }
 
                     NavigationLink(value: ProfileDestination(uid: post.posterUID, username: post.posterUsername)) {
                         Text("@\(post.posterUsername)")
-                            .font(.subheadline)
-                            .foregroundStyle(ThemeColor.blue)
-                    }
-                }
-
-                Divider()
-
-                // Details
-                detailRow("Location", value: post.location, icon: "mappin")
-                detailRow("Timeframe", value: post.timeframe.formatted(date: .abbreviated, time: .omitted), icon: "calendar")
-                detailRow("Budget", value: post.budget, icon: "dollarsign.circle")
-                detailRow("Posted", value: post.createdAt.formatted(date: .abbreviated, time: .omitted), icon: "clock")
-
-                Divider()
-
-                // Description
-                Text("Description")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-
-                Text(post.description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                // Message button
-                if !isOwnPost && !post.isExpired {
-                    Button {
-                        Task { await messagePosterTapped() }
-                    } label: {
-                        Text("Message")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(ThemeColor.blue)
-                            .foregroundStyle(.white)
-                            .clipShape(Rectangle())
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(ThemeColor.cyan)
                     }
                     .padding(.top, 8)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+
+                // Details
+                VStack(spacing: 0) {
+                    if let location = post.location, !location.isEmpty {
+                        detailRow("LOCATION", value: location, icon: "mappin")
+                    }
+                    if post.isOngoing == true {
+                        detailRow("TIMEFRAME", value: "Ongoing", icon: "calendar")
+                    } else if let timeframe = post.timeframe {
+                        detailRow("TIMEFRAME", value: timeframe.formatted(date: .abbreviated, time: .omitted), icon: "calendar")
+                    }
+                    detailRow("BUDGET", value: post.budget, icon: "dollarsign.circle")
+                    detailRow("POSTED", value: post.createdAt.formatted(date: .abbreviated, time: .omitted), icon: "clock")
+                }
+                .padding(.top, 8)
+
+                // Description
+                Text("DESCRIPTION")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(0.8)
+                    .foregroundStyle(.white.opacity(0.45))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+
+                Text(post.description)
+                    .font(.system(size: 14))
+                    .lineSpacing(4)
+                    .foregroundStyle(.white.opacity(0.8))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+
+                // Message button
+                if !isOwnPost && !authManager.isBlocked(post.posterUID) {
+                    if authManager.isGuestMode {
+                        Button {
+                            showGuestPrompt = true
+                        } label: {
+                            Text("MESSAGE")
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .tracking(0.5)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.white)
+                                .foregroundStyle(Color.black)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 20)
+                    } else if authManager.canInteract {
+                        Button {
+                            Task { await messagePosterTapped() }
+                        } label: {
+                            Text("MESSAGE")
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .tracking(0.5)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.white)
+                                .foregroundStyle(Color.black)
+                        }
+                        .accessibilityLabel("Message \(post.posterUsername) about this gig")
+                        .padding(.horizontal, 16)
+                        .padding(.top, 20)
+                    } else {
+                        VStack(spacing: 4) {
+                            Text("COMPLETE YOUR PROFILE TO MESSAGE")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .tracking(0.5)
+                                .foregroundStyle(ThemeColor.red)
+                            Text("\(authManager.profileCompleteness)% complete — 80% required")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.45))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 20)
+                    }
                 }
 
                 // Edit / Delete for own posts
@@ -107,42 +154,97 @@ struct ISOPostDetailView: View {
                         Button {
                             showEditPost = true
                         } label: {
-                            HStack {
+                            HStack(spacing: 8) {
                                 Image(systemName: "pencil")
-                                Text("Edit Post")
+                                    .font(.system(size: 12))
+                                Text("EDIT POST")
+                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                    .tracking(0.5)
                             }
-                            .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(ThemeColor.blue)
-                            .foregroundStyle(.white)
-                            .clipShape(Rectangle())
+                            .padding(.vertical, 14)
+                            .overlay(
+                                Rectangle()
+                                    .stroke(.white.opacity(0.18), lineWidth: 1)
+                            )
                         }
 
                         Button {
                             showDeleteConfirmation = true
                         } label: {
-                            HStack {
+                            HStack(spacing: 8) {
                                 Image(systemName: "trash")
-                                Text("Delete Post")
+                                    .font(.system(size: 12))
+                                Text("DELETE POST")
+                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                    .tracking(0.5)
                             }
-                            .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red.opacity(0.1))
-                            .foregroundStyle(.red)
-                            .clipShape(Rectangle())
+                            .padding(.vertical, 14)
+                            .foregroundStyle(ThemeColor.red)
+                            .overlay(
+                                Rectangle()
+                                    .stroke(ThemeColor.red.opacity(0.3), lineWidth: 1)
+                            )
                         }
                     }
-                    .padding(.top, 8)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 20)
                 }
             }
-            .padding(.horizontal)
-            .padding(.top, 16)
-            .padding(.bottom, 16)
+            .padding(.bottom, 100)
         }
-        .navigationTitle("ISO Post")
+        .navigationTitle("Open Role")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { BLAnalytics.viewISOPost(postId: post.id) }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if let shareURL = URL(string: "backline://iso/\(post.id)") {
+                    ShareLink(
+                        item: shareURL,
+                        subject: Text("\(post.roleNeeded) needed"),
+                        message: Text("Check out this gig on Backline: \(post.roleNeeded) needed\(post.location.map { " in \($0)" } ?? "")")
+                    ) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.body)
+                    }
+                }
+            }
+            if !isOwnPost && !authManager.isGuestMode {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            showReportSheet = true
+                        } label: {
+                            Label("Report Post", systemImage: "exclamationmark.triangle")
+                        }
+                        Button(role: .destructive) {
+                            showBlockConfirmation = true
+                        } label: {
+                            Label("Block User", systemImage: "hand.raised")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.body)
+                    }
+                    .accessibilityLabel("More options")
+                }
+            }
+        }
+        .sheet(isPresented: $showReportSheet) {
+            ReportView(contentType: "isoPost", contentId: post.id, reportedUID: post.posterUID)
+        }
+        .alert("Block @\(post.posterUsername)?", isPresented: $showBlockConfirmation) {
+            Button("Block", role: .destructive) {
+                Task { await authManager.blockUser(post.posterUID) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They won't be able to message you, and their content will be hidden from your feeds.")
+        }
+        .sheet(isPresented: $showGuestPrompt) {
+            GuestPromptView()
+        }
         .navigationDestination(isPresented: $navigateToChat) {
             if let convId = activeChatConversationId,
                let conv = activeChatConversation {
@@ -169,13 +271,23 @@ struct ISOPostDetailView: View {
 
     private func detailRow(_ label: String, value: String, icon: String) -> some View {
         HStack {
-            Label(label, systemImage: icon)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.35))
+                Text(label)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(0.8)
+                    .foregroundStyle(.white.opacity(0.45))
+            }
             Spacer()
             Text(value)
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.system(size: 13, weight: .medium))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.white.opacity(0.10)).frame(height: 1)
         }
     }
 
@@ -189,7 +301,8 @@ struct ISOPostDetailView: View {
             currentUID: uid,
             currentUsername: username,
             otherUID: post.posterUID,
-            otherUsername: post.posterUsername
+            otherUsername: post.posterUsername,
+            initialMessage: "Inquiry about your post: \(post.roleNeeded)"
         ) {
             let conversation = messagesManager.conversations.first(where: { $0.id == convId })
                 ?? Conversation(

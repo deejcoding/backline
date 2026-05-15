@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct ReportView: View {
 
@@ -29,6 +30,7 @@ struct ReportView: View {
     @State private var details = ""
     @State private var isSubmitting = false
     @State private var didSubmit = false
+    @State private var submitError: String?
 
     var body: some View {
         NavigationStack {
@@ -83,7 +85,7 @@ struct ReportView: View {
                                         ? ThemeColor.blue.opacity(0.1)
                                         : Color(.systemGray6)
                                 )
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .clipShape(Rectangle())
                             }
                             .foregroundStyle(.primary)
                         }
@@ -92,9 +94,17 @@ struct ReportView: View {
                             .lineLimit(3...6)
                             .padding()
                             .background(Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .clipShape(Rectangle())
                     }
                     .padding(.horizontal)
+
+                    if let error = submitError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
 
                     Spacer()
 
@@ -127,6 +137,10 @@ struct ReportView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) }
+                }
             }
         }
     }
@@ -134,7 +148,8 @@ struct ReportView: View {
     private func submitReport() async {
         guard let uid = authManager.currentUser?.uid else { return }
         isSubmitting = true
-        await listingManager.submitReport(
+        submitError = nil
+        let success = await listingManager.submitReport(
             reporterUID: uid,
             reportedUID: reportedUID,
             contentType: contentType,
@@ -143,6 +158,10 @@ struct ReportView: View {
             details: details.trimmingCharacters(in: .whitespaces)
         )
         isSubmitting = false
-        didSubmit = true
+        if success {
+            didSubmit = true
+        } else {
+            submitError = listingManager.errorMessage ?? "Failed to submit report. Please try again."
+        }
     }
 }

@@ -14,10 +14,28 @@
 				<string>backline</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>Google Sign-In</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.1039412382496-ndtmkptdt9uprg53fvcnffbk4bg60soa</string>
+			</array>
+		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Backline uses your camera to take photos for listings and your profile.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Backline accesses your photo library to select images for listings and your profile.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Backline uses your location to detect your NYC neighborhood for listings.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

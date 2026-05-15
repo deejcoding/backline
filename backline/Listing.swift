@@ -52,7 +52,10 @@ enum ServiceCategory: String, CaseIterable, Codable {
 enum ISOCategory: String, CaseIterable, Codable {
     case gig = "Gig"
     case bandmate = "Bandmate"
-    case service = "Service"
+    case recording = "Recording"
+    case production = "Production"
+    case repair = "Repair"
+    case lessons = "Lessons"
 }
 
 // MARK: - ISO Post
@@ -61,17 +64,23 @@ struct ISOPost: Identifiable, Codable, Hashable {
     var id: String
     var category: ISOCategory
     var roleNeeded: String
-    var location: String
-    var timeframe: Date
+    var location: String?
+    var timeframe: Date?
+    var isOngoing: Bool?
     var budget: String
     var description: String
     var posterUID: String
     var posterUsername: String
     var createdAt: Date
 
-    var isExpired: Bool {
-        let expirationDate = Calendar.current.date(byAdding: .day, value: 30, to: createdAt) ?? createdAt
-        return Date() > expirationDate
+    var timeAgoString: String {
+        let interval = Date().timeIntervalSince(createdAt)
+        let minutes = Int(interval / 60)
+        if minutes < 60 { return "\(minutes)m ago" }
+        let hours = minutes / 60
+        if hours < 24 { return "\(hours)h ago" }
+        let days = hours / 24
+        return "\(days)d ago"
     }
 }
 
@@ -89,12 +98,21 @@ struct ServiceListing: Identifiable, Codable, Hashable {
     var createdAt: Date
 }
 
+// MARK: - Borough
+
+enum Borough: String, CaseIterable, Codable {
+    case manhattan = "Manhattan"
+    case brooklyn = "Brooklyn"
+    case queens = "Queens"
+    case bronx = "Bronx"
+    case statenIsland = "Staten Island"
+}
+
 // MARK: - Listing Type
 
 enum ListingType: String, CaseIterable, Codable {
     case sell = "Sell"
     case rent = "Rent"
-    case trade = "Trade"
 }
 
 // MARK: - Listing
@@ -109,6 +127,7 @@ struct Listing: Identifiable, Codable, Hashable {
     var category: ListingCategory
     var condition: ListingCondition
     var location: String
+    var borough: Borough?
     var photoURLs: [String]
     var sellerUID: String
     var sellerUsername: String

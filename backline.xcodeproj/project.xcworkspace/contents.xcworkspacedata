@@ -4,4 +4,26 @@
    <FileRef
       location = "self:">
    </FileRef>
+   <Group
+      location = "group:backlineTests"
+      name = "backlineTests">
+      <FileRef
+         location = "group:ProfanityFilterTests.swift">
+      </FileRef>
+      <FileRef
+         location = "group:RateLimiterTests.swift">
+      </FileRef>
+      <FileRef
+         location = "group:DeepLinkRouterTests.swift">
+      </FileRef>
+      <FileRef
+         location = "group:ModelTests.swift">
+      </FileRef>
+      <FileRef
+         location = "group:MusicPlatformTests.swift">
+      </FileRef>
+      <FileRef
+         location = "group:UserProfileTests.swift">
+      </FileRef>
+   </Group>
 </Workspace>

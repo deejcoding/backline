@@ -13,6 +13,7 @@ struct CreateServiceListingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AuthenticationManager.self) private var authManager
     @Environment(ListingManager.self) private var listingManager
+    @Environment(NetworkMonitor.self) private var networkMonitor
 
     // MARK: - Form State
 
@@ -21,6 +22,7 @@ struct CreateServiceListingView: View {
     @State private var description = ""
     @State private var portfolioURL = ""
     @State private var rate = ""
+    @State private var contactInfoWarning: String?
 
     // MARK: - Validation
 
@@ -34,60 +36,42 @@ struct CreateServiceListingView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    VStack(spacing: 16) {
-                        TextField("Service Title", text: $title)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(Rectangle())
+            Form {
+                Section {
+                    TextField("Service Title", text: $title)
 
-                        HStack {
-                            Text("Category")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Picker("Category", selection: $category) {
-                                ForEach(ServiceCategory.allCases, id: \.self) { cat in
-                                    Text(cat.rawValue).tag(cat)
-                                }
-                            }
-                            .labelsHidden()
+                    Picker("Category", selection: $category) {
+                        ForEach(ServiceCategory.allCases, id: \.self) { cat in
+                            Text(cat.rawValue).tag(cat)
                         }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .clipShape(Rectangle())
-
-                        TextField("Description & Experience", text: $description, axis: .vertical)
-                            .lineLimit(4...10)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(Rectangle())
-
-                        TextField("Portfolio Link (optional)", text: $portfolioURL)
-                            .keyboardType(.URL)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(Rectangle())
-
-                        TextField("Rate (e.g. $50/hr, $200/session)", text: $rate)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .clipShape(Rectangle())
                     }
-                    .padding(.horizontal)
+                }
 
-                    // Error
+                Section {
+                    TextField("Description & Experience", text: $description, axis: .vertical)
+                        .lineLimit(4...10)
+
+                    TextField("Portfolio Link (optional)", text: $portfolioURL)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    TextField("Rate (e.g. $50/hr, $200/session)", text: $rate)
+                }
+
+                Section {
+                    if let warning = contactInfoWarning {
+                        Text(warning)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+
                     if let errorMessage = listingManager.errorMessage {
                         Text(errorMessage)
                             .font(.caption)
                             .foregroundStyle(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
                     }
 
-                    // Submit
                     Button {
                         Task { await submitService() }
                     } label: {
@@ -101,15 +85,12 @@ struct CreateServiceListingView: View {
                         }
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(formIsValid && !listingManager.isLoading ? ThemeColor.blue : Color.gray)
-                        .foregroundStyle(.white)
-                        .clipShape(Rectangle())
+                        .padding(.vertical, 4)
                     }
-                    .disabled(!formIsValid || listingManager.isLoading)
-                    .padding(.horizontal)
+                    .listRowBackground(formIsValid && !listingManager.isLoading && networkMonitor.isConnected ? Color.white : Color.gray)
+                    .foregroundStyle(formIsValid && !listingManager.isLoading && networkMonitor.isConnected ? .black : .white)
+                    .disabled(!formIsValid || listingManager.isLoading || !networkMonitor.isConnected)
                 }
-                .padding(.vertical)
             }
             .navigationTitle("List Your Services")
             .navigationBarTitleDisplayMode(.inline)
@@ -119,6 +100,10 @@ struct CreateServiceListingView: View {
                         dismiss()
                     }
                 }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) }
+                }
             }
         }
     }
@@ -126,6 +111,18 @@ struct CreateServiceListingView: View {
     // MARK: - Submit
 
     private func submitService() async {
+        contactInfoWarning = nil
+
+        let fieldsToCheck = [title, description, rate]
+        if fieldsToCheck.contains(where: { ContactInfoFilter.containsContactInfo($0) }) {
+            contactInfoWarning = "Please don't include phone numbers or email addresses. Use in-app messaging instead."
+            return
+        }
+        if fieldsToCheck.contains(where: { ProfanityFilter.containsProfanity($0) }) {
+            contactInfoWarning = "Your listing contains inappropriate language. Please revise and try again."
+            return
+        }
+
         guard let uid = authManager.currentUser?.uid,
               let username = authManager.username else { return }
 

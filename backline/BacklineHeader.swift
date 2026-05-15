@@ -9,26 +9,19 @@ import SwiftUI
 
 // MARK: - Backline Wordmark Header
 
-/// Broadcast-style header with "backline" wordmark, colored dot, and icon buttons.
+/// Broadcast-style header with "backline" wordmark and icon buttons.
 struct BacklineHeader: View {
 
-    var dotColor: Color = ThemeColor.cyan
     var showMessages: Bool = false
     var unreadCount: Int = 0
     var profilePhotoURL: String? = nil
 
     var body: some View {
         HStack {
-            // Brand: dot + wordmark
-            HStack(spacing: 8) {
-                Rectangle()
-                    .fill(dotColor)
-                    .frame(width: 8, height: 8)
-
-                Text("backline")
-                    .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    .tracking(-0.2)
-            }
+            // Brand: wordmark
+            Text("backline")
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .tracking(-0.2)
 
             Spacer()
 
@@ -55,6 +48,7 @@ struct BacklineHeader: View {
                             }
                         }
                     }
+                    .accessibilityLabel(unreadCount > 0 ? "\(unreadCount) unread messages" : "Messages")
                 }
 
                 if let urlString = profilePhotoURL, let url = URL(string: urlString) {
@@ -145,6 +139,7 @@ struct BroadcastChip: View {
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }
 

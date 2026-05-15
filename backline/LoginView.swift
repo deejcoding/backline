@@ -12,7 +12,7 @@ struct LoginView: View {
 
     @Environment(AuthenticationManager.self) private var authManager
 
-    @State private var email = ""
+    @State private var emailOrUsername = ""
     @State private var password = ""
     @State private var showSignUp = false
     @State private var showForgotPasswordAlert = false
@@ -29,24 +29,24 @@ struct LoginView: View {
                     .fontWeight(.bold)
 
                 VStack(spacing: 12) {
-                    TextField("Email", text: $email)
-                        .font(.caption)
-                        .textContentType(.emailAddress)
+                    TextField("Email or username", text: $emailOrUsername)
+                        .font(.system(size: 12, design: .monospaced))
+                        .textContentType(.username)
                         .keyboardType(.emailAddress)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .padding(10)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
+                            Rectangle()
                                 .stroke(.white.opacity(0.2), lineWidth: 0.5)
                         )
 
                     SecureField("Password", text: $password)
-                        .font(.caption)
+                        .font(.system(size: 12, design: .monospaced))
                         .textContentType(.password)
                         .padding(10)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
+                            Rectangle()
                                 .stroke(.white.opacity(0.2), lineWidth: 0.5)
                         )
                 }
@@ -62,7 +62,7 @@ struct LoginView: View {
 
                 Button {
                     Task {
-                        await authManager.signIn(email: email, password: password)
+                        await authManager.signIn(emailOrUsername: emailOrUsername, password: password)
                     }
                 } label: {
                     Group {
@@ -73,19 +73,18 @@ struct LoginView: View {
                             Text("Sign In")
                         }
                     }
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(.white)
                     .foregroundStyle(.black)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(Rectangle())
                 }
-                .disabled(authManager.isLoading || email.isEmpty || password.isEmpty)
+                .disabled(authManager.isLoading || emailOrUsername.isEmpty || password.isEmpty)
                 .padding(.horizontal)
 
                 Button("Forgot Password?") {
-                    forgotPasswordEmail = email
+                    forgotPasswordEmail = emailOrUsername.contains("@") ? emailOrUsername : ""
                     showForgotPasswordAlert = true
                 }
                 .font(.footnote)
@@ -106,9 +105,8 @@ struct LoginView: View {
 
                 // Sign in with Apple
                 SignInWithAppleButton(.signIn) { request in
-                    let appleRequest = authManager.prepareAppleSignIn()
-                    request.requestedScopes = appleRequest.requestedScopes
-                    request.nonce = appleRequest.nonce
+                    request.requestedScopes = [.fullName, .email]
+                    request.nonce = authManager.prepareAppleSignInNonce()
                 } onCompletion: { result in
                     switch result {
                     case .success(let authorization):
@@ -133,15 +131,14 @@ struct LoginView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "g.circle.fill")
-                            .font(.caption)
+                            .font(.system(size: 12))
                         Text("Sign in with Google")
                     }
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8)
+                        Rectangle()
                             .stroke(.white.opacity(0.2), lineWidth: 0.5)
                     )
                 }
@@ -154,12 +151,20 @@ struct LoginView: View {
                 HStack {
                     Text("Don't have an account?")
                         .foregroundStyle(.secondary)
-                    Button("Sign Up") {
+                    Button("Sign up with email") {
                         showSignUp = true
                     }
                     .fontWeight(.medium)
                 }
                 .font(.caption)
+
+                Button {
+                    authManager.enterGuestMode()
+                } label: {
+                    Text("Browse as Guest")
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
                 .padding(.bottom)
             }
         }

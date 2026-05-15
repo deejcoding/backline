@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct ConnectionsListView: View {
 
@@ -44,10 +45,10 @@ struct ConnectionsListView: View {
                                 CachedAsyncImage(url: url) { image in
                                     image.resizable().scaledToFill()
                                 } placeholder: {
-                                    Circle().fill(Color(.systemGray5))
+                                    Rectangle().fill(Color(.systemGray5))
                                 }
                                 .frame(width: 44, height: 44)
-                                .clipShape(Circle())
+                                .clipShape(Rectangle())
                             } else {
                                 Image(systemName: "person.circle.fill")
                                     .resizable()
@@ -73,6 +74,7 @@ struct ConnectionsListView: View {
         }
         .navigationTitle("Connections")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { BLAnalytics.viewConnectionsList() }
         .navigationDestination(for: ProfileDestination.self) { dest in
             PublicProfileView(uid: dest.uid, username: dest.username)
         }
