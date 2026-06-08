@@ -17,6 +17,12 @@ struct LoginView: View {
     @State private var showSignUp = false
     @State private var showForgotPasswordAlert = false
     @State private var forgotPasswordEmail = ""
+    @State private var confirmedAge = false
+    @State private var agreedToTerms = false
+
+    var canSubmit: Bool {
+        !emailOrUsername.isEmpty && !password.isEmpty && confirmedAge && agreedToTerms
+    }
 
     var body: some View {
         ScrollView {
@@ -52,6 +58,53 @@ struct LoginView: View {
                 }
                 .padding(.horizontal)
 
+                // Legal links
+                VStack(alignment: .leading, spacing: 10) {
+                    Button {
+                        confirmedAge.toggle()
+                    } label: {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: confirmedAge ? "checkmark.square.fill" : "square")
+                                .font(.system(size: 16))
+                                .foregroundStyle(confirmedAge ? ThemeColor.cyan : .white.opacity(0.4))
+                            Text("I confirm that I am 18 years or older")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .multilineTextAlignment(.leading)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    HStack(alignment: .top, spacing: 8) {
+                        Button {
+                            agreedToTerms.toggle()
+                        } label: {
+                            Image(systemName: agreedToTerms ? "checkmark.square.fill" : "square")
+                                .font(.system(size: 16))
+                                .foregroundStyle(agreedToTerms ? ThemeColor.cyan : .white.opacity(0.4))
+                        }
+                        .buttonStyle(.plain)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("I agree to the")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .onTapGesture { agreedToTerms.toggle() }
+                            HStack(spacing: 4) {
+                                Link("Terms of Service & EULA", destination: URL(string: "https://backlinenyc.com/terms.html")!)
+                                Text("and")
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .onTapGesture { agreedToTerms.toggle() }
+                                Link("Privacy Policy", destination: URL(string: "https://backlinenyc.com/privacy.html")!)
+                            }
+                            .font(.system(size: 11, design: .monospaced))
+                            .tint(.white.opacity(0.9))
+                            .underline()
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
                 if let errorMessage = authManager.errorMessage {
                     Text(errorMessage)
                         .font(.caption)
@@ -80,7 +133,7 @@ struct LoginView: View {
                     .foregroundStyle(.black)
                     .clipShape(Rectangle())
                 }
-                .disabled(authManager.isLoading || emailOrUsername.isEmpty || password.isEmpty)
+                .disabled(authManager.isLoading || !canSubmit)
                 .padding(.horizontal)
 
                 Button("Forgot Password?") {
@@ -103,6 +156,14 @@ struct LoginView: View {
                 }
                 .padding(.horizontal)
 
+                if !confirmedAge || !agreedToTerms {
+                    Text("Check both boxes above to enable Apple / Google sign in")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.35))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+
                 // Sign in with Apple
                 SignInWithAppleButton(.signIn) { request in
                     request.requestedScopes = [.fullName, .email]
@@ -122,6 +183,8 @@ struct LoginView: View {
                 .signInWithAppleButtonStyle(.white)
                 .frame(height: 40)
                 .padding(.horizontal)
+                .disabled(!confirmedAge || !agreedToTerms)
+                .opacity(confirmedAge && agreedToTerms ? 1.0 : 0.5)
 
                 // Sign in with Google
                 Button {
@@ -142,7 +205,8 @@ struct LoginView: View {
                             .stroke(.white.opacity(0.2), lineWidth: 0.5)
                     )
                 }
-                .disabled(authManager.isLoading)
+                .disabled(authManager.isLoading || !confirmedAge || !agreedToTerms)
+                .opacity(confirmedAge && agreedToTerms ? 1.0 : 0.5)
                 .padding(.horizontal)
 
                 Spacer()

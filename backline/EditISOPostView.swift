@@ -44,9 +44,7 @@ struct EditISOPostView: View {
             _timeframeOption = State(initialValue: .none)
         }
         _timeframe = State(initialValue: post.timeframe ?? Date())
-        // Strip leading $ for editing
-        let rawBudget = post.budget.hasPrefix("$") ? String(post.budget.dropFirst()) : post.budget
-        _budget = State(initialValue: rawBudget)
+        _budget = State(initialValue: post.budget ?? "")
         _description = State(initialValue: post.description)
     }
 
@@ -54,7 +52,6 @@ struct EditISOPostView: View {
 
     private var formIsValid: Bool {
         !roleNeeded.trimmingCharacters(in: .whitespaces).isEmpty
-        && !budget.trimmingCharacters(in: .whitespaces).isEmpty
         && !description.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
@@ -85,12 +82,7 @@ struct EditISOPostView: View {
                 }
 
                 Section {
-                    HStack {
-                        Text("$")
-                            .foregroundStyle(.secondary)
-                        TextField("Budget (e.g. 200)", text: $budget)
-                            .keyboardType(.numberPad)
-                    }
+                    TextField("Compensation (e.g. $200, 15%, etc.)", text: $budget)
 
                     TextField("Description", text: $description, axis: .vertical)
                         .lineLimit(4...10)
@@ -162,6 +154,8 @@ struct EditISOPostView: View {
 
         let trimmedLocation = location.trimmingCharacters(in: .whitespaces)
 
+        let trimmedBudget = budget.trimmingCharacters(in: .whitespaces)
+
         await listingManager.updateISOPost(
             id: post.id,
             category: category,
@@ -169,7 +163,7 @@ struct EditISOPostView: View {
             location: trimmedLocation.isEmpty ? nil : trimmedLocation,
             timeframe: timeframeOption == .specificDate ? timeframe : nil,
             isOngoing: timeframeOption == .ongoing,
-            budget: "$\(budget.trimmingCharacters(in: .whitespaces))",
+            budget: trimmedBudget.isEmpty ? nil : trimmedBudget,
             description: description.trimmingCharacters(in: .whitespaces)
         )
 

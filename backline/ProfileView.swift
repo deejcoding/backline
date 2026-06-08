@@ -115,6 +115,14 @@ struct ProfileView: View {
             .navigationDestination(for: ProfileDestination.self) { dest in
                 PublicProfileView(uid: dest.uid, username: dest.username)
             }
+            .navigationDestination(for: ProfileSubpage.self) { subpage in
+                switch subpage {
+                case .connections:
+                    ConnectionsListView()
+                case .connectionRequests:
+                    ConnectionRequestsView()
+                }
+            }
             .navigationDestination(for: Listing.self) { listing in
                 ListingDetailView(listing: listing)
             }
@@ -243,6 +251,7 @@ struct ProfileView: View {
         if authManager.musicProjects.isEmpty && authManager.featuredProjects.isEmpty { items.append("portfolio") }
         if authManager.roles.isEmpty { items.append("skills") }
         if authManager.genres.isEmpty { items.append("genres") }
+        if authManager.neighborhood == nil || (authManager.neighborhood ?? "").isEmpty { items.append("neighborhood") }
         return items
     }
 
@@ -331,6 +340,16 @@ struct ProfileView: View {
                         }
                     }
 
+                    if let neighborhood = authManager.neighborhood, !neighborhood.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "mappin")
+                                .font(.system(size: 9))
+                            Text(neighborhood)
+                                .font(.system(size: 11, design: .monospaced))
+                        }
+                        .foregroundStyle(.white.opacity(0.55))
+                    }
+
                     if let handle = authManager.instagramHandle, !handle.isEmpty {
                         Link(destination: URL(string: "https://instagram.com/\(handle)") ?? URL(string: "https://instagram.com")!) {
                             HStack(spacing: 4) {
@@ -352,16 +371,13 @@ struct ProfileView: View {
 
             // Bio
             if let bio = authManager.bio, !bio.isEmpty {
-                HStack(alignment: .top, spacing: 0) {
-                    Text("● ")
-                        .foregroundStyle(ThemeColor.green)
-                    Text(bio)
-                }
-                .font(.system(size: 14))
-                .lineSpacing(4)
-                .foregroundStyle(.white.opacity(0.85))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+                Text(bio)
+                    .font(.system(size: 14))
+                    .lineSpacing(4)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
             }
         }
     }
@@ -372,15 +388,11 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             // Stat strip
             HStack(spacing: 0) {
-                NavigationLink {
-                    ConnectionsListView()
-                } label: {
+                NavigationLink(value: ProfileSubpage.connections) {
                     statCell(num: "\(connectionsManager.connections.count)", unit: "CONNECTED", color: ThemeColor.green)
                 }
                 .buttonStyle(.plain)
-                NavigationLink {
-                    ConnectionRequestsView()
-                } label: {
+                NavigationLink(value: ProfileSubpage.connectionRequests) {
                     statCell(
                         num: "\(connectionsManager.incomingRequests.count)",
                         unit: "REQUESTS",
@@ -453,7 +465,7 @@ struct ProfileView: View {
     private var referralSection: some View {
         if let code = authManager.referralCode {
             Button {
-                UIPasteboard.general.string = "Join me on Backline! Use my referral code: \(code)"
+                UIPasteboard.general.string = "Join me on Backline! Use my referral code: \(code)\nhttps://apps.apple.com/us/app/backline-nyc/id6761860706"
                 withAnimation {
                     showCopiedFeedback = true
                 }
@@ -938,7 +950,7 @@ struct ProfileView: View {
                                         .foregroundStyle(.white.opacity(0.55))
                                 }
                                 Spacer()
-                                Text(post.budget)
+                                Text(post.budget ?? "")
                                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                                     .foregroundStyle(ThemeColor.green)
                             }
@@ -1128,6 +1140,7 @@ private struct SettingsView: View {
             )) {
                 Text("Anyone").tag("anyone")
                 Text("Connections Only").tag("connections")
+                Text("Mutuals Only").tag("mutuals")
             }
             .pickerStyle(.menu)
             .tint(.white.opacity(0.6))

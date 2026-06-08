@@ -80,7 +80,9 @@ struct ISOPostDetailView: View {
                     } else if let timeframe = post.timeframe {
                         detailRow("TIMEFRAME", value: timeframe.formatted(date: .abbreviated, time: .omitted), icon: "calendar")
                     }
-                    detailRow("BUDGET", value: post.budget, icon: "dollarsign.circle")
+                    if let budget = post.budget, !budget.isEmpty {
+                        detailRow("COMPENSATION", value: budget, icon: "dollarsign.circle")
+                    }
                     detailRow("POSTED", value: post.createdAt.formatted(date: .abbreviated, time: .omitted), icon: "clock")
                 }
                 .padding(.top, 8)

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — backline.nyc</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="left">
+      <span class="screw" aria-hidden="true"></span>
+      <a href="index.html">
+        <img src="longlogo.png" alt="backline.nyc" class="logo-img">
+      </a>
+    </div>
+    <div class="right">
+      <nav class="nav" aria-label="Primary">
+        <a href="about.html">about</a>
+        <a href="index.html#features">features</a>
+        <a href="index.html#android">android</a>
+        <a href="contact.html">contact</a>
+        <a href="https://instagram.com/backlinenyc" class="ig" target="_blank" rel="noopener">@backlinenyc</a>
+      </nav>
+      <span class="screw" aria-hidden="true"></span>
+    </div>
+  </header>
+
+  <main class="page">
+    <a href="index.html" class="back">← back to home</a>
+    <h1>Contact</h1>
+    <div class="updated">drop us a line. feedback, bug reports, press, partnerships.</div>
+
+    <div class="contact-grid">
+      <div class="contact-info">
+        <div class="row">
+          <div class="key">Email</div>
+          <div class="val"><a href="mailto:hello@backlinenyc.com">hello@backlinenyc.com</a></div>
+        </div>
+        <div class="row">
+          <div class="key">Instagram</div>
+          <div class="val ig"><a href="https://instagram.com/backlinenyc" target="_blank" rel="noopener">@backlinenyc</a></div>
+        </div>
+        <div class="row">
+          <div class="key">App</div>
+          <div class="val"><a href="https://apps.apple.com/us/app/backline-nyc/id6761860706" target="_blank" rel="noopener">Backline NYC on the App Store</a></div>
+        </div>
+        <div class="row">
+          <div class="key">Location</div>
+          <div class="val">New York, NY</div>
+        </div>
+      </div>
+
+      <div id="contact-container">
+        <form class="contact-form" id="contact-form">
+          <label for="c-name">Name</label>
+          <input id="c-name" name="name" type="text" required />
+          <label for="c-email">Email</label>
+          <input id="c-email" name="email" type="email" required />
+          <label for="c-msg">Message</label>
+          <textarea id="c-msg" name="message" required></textarea>
+          <button type="submit" id="submit-btn">send</button>
+        </form>
+        <div id="form-success" style="display:none; padding: 40px; border: 1px solid var(--accent); color: var(--accent); text-align: center; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em;">
+          Message received. We'll get back to you soon.
+        </div>
+        <div id="form-error" style="display:none; padding: 20px; color: #ff3b30; font-family: var(--font-mono); font-size: 12px; margin-top: 10px;">
+          Something went wrong. Please try again or email us directly.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAWTH5Tx-CNfBI11QpQOZ4BBu0W22sRZF0",
+      authDomain: "backline-7e769.firebaseapp.com",
+      projectId: "backline-7e769",
+      storageBucket: "backline-7e769.firebasestorage.app",
+      messagingSenderId: "1039412382496",
+      appId: "1:1039412382496:ios:e1f6c162f0e54275672545"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const form = document.getElementById('contact-form');
+    const successMsg = document.getElementById('form-success');
+    const errorMsg = document.getElementById('form-error');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const name = document.getElementById('c-name').value;
+      const email = document.getElementById('c-email').value;
+      const message = document.getElementById('c-msg').value;
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'sending...';
+      errorMsg.style.display = 'none';
+
+      try {
+        await addDoc(collection(db, "contactMessages"), {
+          name,
+          email,
+          message,
+          createdAt: serverTimestamp(),
+          source: 'marketing_site'
+        });
+        
+        form.style.display = 'none';
+        successMsg.style.display = 'block';
+      } catch (e) {
+        console.error("Error submitting form: ", e);
+        errorMsg.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'send';
+      }
+    });
+  </script>
+
+  <footer class="foot">
+    <div class="foot-row">
+      <div class="foot-left">
+        <span class="screw" aria-hidden="true"></span>
+        <span>© 2026 backline nyc</span>
+      </div>
+      <div class="foot-right">
+        <a href="about.html">about</a>
+        <a href="terms.html">terms</a>
+        <a href="privacy.html">privacy</a>
+        <a href="contact.html">contact</a>
+        <a href="https://instagram.com/backlinenyc" class="ig" target="_blank" rel="noopener">@backlinenyc</a>
+        <span class="screw" aria-hidden="true"></span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

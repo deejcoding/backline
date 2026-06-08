@@ -17,6 +17,7 @@ struct SignUpView: View {
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var referralCode = ""
+    @State private var showReferralInfo = false
     @State private var confirmedAge = false
     @State private var agreedToTerms = false
 
@@ -111,15 +112,27 @@ struct SignUpView: View {
                                 .stroke(.white.opacity(0.2), lineWidth: 0.5)
                         )
 
-                    TextField("Referral Code", text: $referralCode)
-                        .font(.system(size: 12, design: .monospaced))
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.characters)
-                        .padding(10)
-                        .overlay(
-                            Rectangle()
-                                .stroke(.white.opacity(0.2), lineWidth: 0.5)
-                        )
+                    HStack(spacing: 0) {
+                        TextField("Referral Code", text: $referralCode)
+                            .font(.system(size: 12, design: .monospaced))
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.characters)
+                            .padding(10)
+
+                        Button {
+                            showReferralInfo = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.white.opacity(0.5))
+                                .padding(.trailing, 10)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .overlay(
+                        Rectangle()
+                            .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                    )
                 }
                 .padding(.horizontal)
 
@@ -201,24 +214,41 @@ struct SignUpView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button {
-                        agreedToTerms.toggle()
-                    } label: {
-                        HStack(alignment: .top, spacing: 8) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Button {
+                            agreedToTerms.toggle()
+                        } label: {
                             Image(systemName: agreedToTerms ? "checkmark.square.fill" : "square")
                                 .font(.system(size: 16))
                                 .foregroundStyle(agreedToTerms ? ThemeColor.cyan : .white.opacity(0.4))
-                            Text("I agree to the [\(Text("Terms of Service & EULA").underline())](https://backlinenyc.com/terms.html) and [\(Text("Privacy Policy").underline())](https://backlinenyc.com/privacy.html)")
+                        }
+                        .buttonStyle(.plain)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("I agree to the")
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(.white.opacity(0.7))
-                                .tint(.white.opacity(0.7))
-                                .multilineTextAlignment(.leading)
+                                .onTapGesture { agreedToTerms.toggle() }
+                            HStack(spacing: 4) {
+                                Link("Terms of Service & EULA", destination: URL(string: "https://backlinenyc.com/terms.html")!)
+                                Text("and")
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .onTapGesture { agreedToTerms.toggle() }
+                                Link("Privacy Policy", destination: URL(string: "https://backlinenyc.com/privacy.html")!)
+                            }
+                            .font(.system(size: 11, design: .monospaced))
+                            .tint(.white.opacity(0.9))
+                            .underline()
                         }
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal)
             }
+        }
+        .alert("Referral Code", isPresented: $showReferralInfo) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("You need a referral code from an existing Backline NYC member to create an account.")
         }
     }
 

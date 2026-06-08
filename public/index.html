@@ -49,11 +49,15 @@
         .tabs {
             display: flex; gap: 0; border-bottom: 1px solid #222;
             background: #111; padding: 0 24px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
+        .tabs::-webkit-scrollbar { display: none; }
         .tab {
             padding: 12px 20px; font-size: 13px; font-weight: 500; cursor: pointer;
             border-bottom: 2px solid transparent; color: #888;
             transition: all 0.15s;
+            white-space: nowrap;
         }
         .tab:hover { color: #ccc; }
         .tab.active { color: #4a9eff; border-bottom-color: #4a9eff; }
@@ -67,6 +71,21 @@
         .content { padding: 24px; max-width: 1200px; margin: 0 auto; }
         .section-title { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
         .loading { text-align: center; padding: 60px; color: #666; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            header { padding: 12px 16px; flex-direction: column; align-items: flex-start; gap: 12px; }
+            header .user-info { width: 100%; justify-content: space-between; }
+            .tabs { padding: 0 16px; }
+            .content { padding: 16px; }
+            .stat-card { min-width: calc(50% - 8px); padding: 12px 16px; }
+            .stat-value { font-size: 22px; }
+            .charts-row { grid-template-columns: 1fr; gap: 16px; }
+            .card { padding: 12px; }
+            .card-title { font-size: 14px; }
+            .card-meta { gap: 8px; }
+            .dialog { padding: 20px; width: 95%; }
+        }
 
         /* Cards */
         .card {
@@ -191,6 +210,11 @@
         <div class="tab" data-tab="blocks" onclick="switchTab('blocks')">
             Blocks <span class="badge" id="blocks-badge" style="display:none">0</span>
         </div>
+        <div class="tab" data-tab="promo" onclick="switchTab('promo')">Promo Codes</div>
+        <div class="tab" data-tab="referrals" onclick="switchTab('referrals')">Referrals</div>
+        <div class="tab" data-tab="contact" onclick="switchTab('contact')">
+            Contact <span class="badge" id="contact-badge" style="display:none">0</span>
+        </div>
     </div>
 
     <div class="content" id="tab-content">
@@ -216,7 +240,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, deleteDoc, doc, query, orderBy, limit, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc, query, orderBy, limit, getDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { getStorage, ref, deleteObject, listAll } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
@@ -238,7 +262,7 @@
     const notifyContentRemoval = httpsCallable(functions, "notifyContentRemoval");
 
     // Admin UID whitelist — add your UID here
-    const ADMIN_UIDS = [];  // e.g. ["SzRplFjd5ITmPPUnuidDuqLlEk52"]
+    const ADMIN_UIDS = ["yKGfBIJN7kNM56b5gbFK4UeX9Pp2", "nbj2KwFI4rY2Vjj5wOJ1yXhPjIV2"];  // e.g. ["SzRplFjd5ITmPPUnuidDuqLlEk52"]
 
     let currentTab = "analytics";
     let cachedData = {};
@@ -310,7 +334,7 @@
     async function loadAllData() {
         document.getElementById("tab-content").innerHTML = '<div class="loading">Loading...</div>';
         try {
-            const [reports, listings, services, isoPosts, users, connections, flyers, globalStatsDoc, dailyStats] = await Promise.all([
+            const results = await Promise.allSettled([
                 fetchCollection("reports", "createdAt"),
                 fetchCollection("listings", "createdAt"),
                 fetchCollection("serviceListings", "createdAt"),
@@ -319,12 +343,46 @@
                 fetchCollection("connectionRequests", null),
                 fetchCollection("showFlyers", "createdAt"),
                 getDoc(doc(db, "stats", "global")),
-                fetchCollection("stats/daily_activity/days", null)
-            ]);
-            
-            const globalStats = globalStatsDoc.exists() ? globalStatsDoc.data() : {};
+                fetchCollection("stats/daily_activity/days", null),
+                fetchCollection("masterCodes", null),
+                fetchCollection("contactMessages", "createdAt")
+                ]);
 
-            cachedData = { reports, listings, services, isoPosts, users, connections, flyers, globalStats, dailyStats };
+                const errors = results.filter(r => r.status === "rejected").map(r => {
+                console.error("Fetch error:", r.reason);
+                return `${r.reason.name || 'Error'}: ${r.reason.message}${r.reason.code ? ' (' + r.reason.code + ')' : ''}`;
+                });
+                if (errors.length > 0) {
+                console.error("Some fetches failed:", errors);
+                }
+
+                const reports = results[0].status === "fulfilled" ? results[0].value : [];
+                const listings = results[1].status === "fulfilled" ? results[1].value : [];
+                const services = results[2].status === "fulfilled" ? results[2].value : [];
+                const isoPosts = results[3].status === "fulfilled" ? results[3].value : [];
+                let users = results[4].status === "fulfilled" ? results[4].value : [];
+                // Sort users by createdAt descending (most recent first)
+                users = users.sort((a, b) => {
+                    const aTime = a.createdAt?.toDate?.() || a.createdAt || 0;
+                    const bTime = b.createdAt?.toDate?.() || b.createdAt || 0;
+                    return (bTime instanceof Date ? bTime.getTime() : bTime) - (aTime instanceof Date ? aTime.getTime() : aTime);
+                });
+                const connections = results[5].status === "fulfilled" ? results[5].value : [];
+                const flyers = results[6].status === "fulfilled" ? results[6].value : [];
+                const globalStatsDoc = results[7].status === "fulfilled" ? results[7].value : null;
+                const dailyStats = results[8].status === "fulfilled" ? results[8].value : [];
+                const masterCodes = results[9].status === "fulfilled" ? results[9].value : [];
+                const contactMessages = results[10].status === "fulfilled" ? results[10].value : [];
+
+                const globalStats = (globalStatsDoc && globalStatsDoc.exists()) ? globalStatsDoc.data() : {};
+
+                cachedData = { reports, listings, services, isoPosts, users, connections, flyers, globalStats, dailyStats, masterCodes, contactMessages };
+            if (errors.length > 0) {
+                const errorBanner = document.createElement("div");
+                errorBanner.style.cssText = "background:#331111; color:#ff6666; padding:12px 24px; font-size:12px; border-bottom:1px solid #552222; white-space: pre-wrap;";
+                errorBanner.innerHTML = `<strong>⚠️ Warning:</strong> Some data could not be loaded:<br>${errors.join("<br>")}`;
+                document.getElementById("app").prepend(errorBanner);
+            }
 
             // Reports badge
             const badge = document.getElementById("reports-badge");
@@ -333,6 +391,15 @@
                 badge.textContent = reports.length;
             } else {
                 badge.style.display = "none";
+            }
+
+            // Contact badge
+            const cBadge = document.getElementById("contact-badge");
+            if (contactMessages.length > 0) {
+                cBadge.style.display = "inline-block";
+                cBadge.textContent = contactMessages.length;
+            } else {
+                cBadge.style.display = "none";
             }
 
             // Blocks badge — count total block relationships
@@ -353,25 +420,20 @@
 
             renderTab();
         } catch (e) {
-            document.getElementById("tab-content").innerHTML = `<div class="empty"><p>Error: ${e.message}</p></div>`;
+            document.getElementById("tab-content").innerHTML = `<div class="empty"><p>Critical Error: ${e.message}</p></div>`;
         }
     }
     window.loadAllData = loadAllData;
 
     async function fetchCollection(name, orderField) {
         let q;
-        try {
-            if (orderField) {
-                q = query(collection(db, name), orderBy(orderField, "desc"), limit(200));
-            } else {
-                q = query(collection(db, name), limit(200));
-            }
-            const snapshot = await getDocs(q);
-            return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        } catch (e) {
-            console.warn(`Failed to fetch ${name}:`, e);
-            return [];
+        if (orderField) {
+            q = query(collection(db, name), orderBy(orderField, "desc"), limit(200));
+        } else {
+            q = query(collection(db, name), limit(200));
         }
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     }
 
     function renderTab() {
@@ -383,11 +445,14 @@
         switch (currentTab) {
             case "analytics": container.innerHTML = renderAnalytics(); initCharts(); break;
             case "reports": container.innerHTML = renderReports(); break;
+            case "contact": container.innerHTML = renderContactMessages(); break;
             case "listings": container.innerHTML = renderListings(); break;
             case "services": container.innerHTML = renderServices(); break;
             case "iso": container.innerHTML = renderISO(); break;
             case "users": container.innerHTML = renderUsers(); break;
             case "blocks": container.innerHTML = renderBlocks(); break;
+            case "promo": container.innerHTML = renderPromoCodes(); break;
+            case "referrals": container.innerHTML = renderReferrals(); break;
         }
     }
 
@@ -610,19 +675,19 @@
 
             if (r.contentType === "listing") {
                 content = (cachedData.listings || []).find(x => x.id === r.contentId);
-            }
-
-            if (r.contentType === "service") {
+            } else if (r.contentType === "service") {
                 content = (cachedData.services || []).find(x => x.id === r.contentId);
-            }
-
-            if (r.contentType === "isoPost") {
+            } else if (r.contentType === "isoPost") {
                 content = (cachedData.isoPosts || []).find(x => x.id === r.contentId);
+            } else if (r.contentType === "showFlyer") {
+                content = (cachedData.flyers || []).find(x => x.id === r.contentId);
+            } else if (r.contentType === "user") {
+                content = (cachedData.users || []).find(x => x.id === r.contentId);
             }
 
             const reporterUsername = getUsername(r.reporterUID);
-            const ownerUID = content ? (content.sellerUID || content.posterUID || "") : "";
-            const ownerUsername = ownerUID ? getUsername(ownerUID) : null;
+            const ownerUID = r.reportedUID || "";
+            const ownerUsername = getUsername(ownerUID);
 
             return `
             <div class="card">
@@ -653,27 +718,27 @@
                 ${
                     content ? `
                     <div class="card-title">
-                        ${escapeHtml(content.title || content.roleNeeded || "Untitled")}
+                        ${escapeHtml(content.title || content.roleNeeded || (r.contentType === "user" ? "@" + content.username : "Untitled"))}
                     </div>
 
                     <div class="card-body" style="margin-top:8px;">
-                        ${escapeHtml(content.description || "")}
+                        ${escapeHtml(content.description || content.bio || "")}
                     </div>
 
                     ${
-                        content.photoURLs?.length
+                        (content.photoURLs?.length || content.imageURL || content.profilePhotoURL)
                         ? `
                         <div class="card-images">
-                            ${content.photoURLs.map(url =>
-                                `<img src="${url}" loading="lazy">`
-                            ).join("")}
+                            ${content.photoURLs ? content.photoURLs.map(url => `<img src="${url}" loading="lazy">`).join("") : ""}
+                            ${content.imageURL ? `<img src="${content.imageURL}" loading="lazy">` : ""}
+                            ${content.profilePhotoURL ? `<img src="${content.profilePhotoURL}" loading="lazy">` : ""}
                         </div>
                         `
                         : ""
                     }
                     `
                     :
-                    `<div style="color:#ff6666;">Original content not found (deleted already)</div>`
+                    `<div style="color:#ff6666;">Original content not found (deleted already or out of view)</div>`
                 }
 
                 <div class="card-actions">
@@ -703,7 +768,7 @@
     };
 
     window.deleteReportedContent = function(reportId, contentType, contentId) {
-        const collMap = { listing: "listings", isoPost: "isoPosts", service: "serviceListings", user: null };
+        const collMap = { listing: "listings", isoPost: "isoPosts", service: "serviceListings", showFlyer: "showFlyers", user: null };
         const coll = collMap[contentType];
         const msg = coll
             ? "This will delete the reported content, notify the owner, AND dismiss the report."
@@ -712,11 +777,15 @@
             if (coll && contentId) {
                 // Look up content to get owner UID and title for notification
                 try {
-                    const contentDoc = await getDoc(doc(db, coll, contentId));
-                    if (contentDoc.exists()) {
-                        const data = contentDoc.data();
-                        const ownerUID = data.sellerUID || data.posterUID || null;
-                        const contentTitle = data.title || data.roleNeeded || "";
+                    let contentDoc = null;
+                    if (contentType === "listing") contentDoc = (cachedData.listings || []).find(x => x.id === contentId);
+                    if (contentType === "isoPost") contentDoc = (cachedData.isoPosts || []).find(x => x.id === contentId);
+                    if (contentType === "service") contentDoc = (cachedData.services || []).find(x => x.id === contentId);
+                    if (contentType === "showFlyer") contentDoc = (cachedData.flyers || []).find(x => x.id === contentId);
+
+                    if (contentDoc) {
+                        const ownerUID = contentDoc.sellerUID || contentDoc.posterUID || null;
+                        const contentTitle = contentDoc.title || contentDoc.roleNeeded || "";
                         if (ownerUID) {
                             await notifyContentRemoval({ userUID: ownerUID, contentType, contentTitle });
                         }
@@ -727,6 +796,7 @@
                 if (contentType === "listing") cachedData.listings = cachedData.listings.filter(l => l.id !== contentId);
                 if (contentType === "isoPost") cachedData.isoPosts = cachedData.isoPosts.filter(p => p.id !== contentId);
                 if (contentType === "service") cachedData.services = cachedData.services.filter(s => s.id !== contentId);
+                if (contentType === "showFlyer") cachedData.flyers = cachedData.flyers.filter(f => f.id !== contentId);
             }
             await deleteDoc(doc(db, "reports", reportId));
             cachedData.reports = cachedData.reports.filter(r => r.id !== reportId);
@@ -972,6 +1042,116 @@
         return statsHtml + flaggedHtml + listHtml;
     }
 
+    // ── Promo Codes ──
+    function renderPromoCodes() {
+        const codes = cachedData.masterCodes || [];
+        const activeCodes = codes.filter(c => c.active !== false);
+        const inactiveCodes = codes.filter(c => c.active === false);
+
+        const formHtml = `
+            <div class="section-title">Add New Promo Code</div>
+            <div class="card" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+                <div style="flex:1;min-width:200px">
+                    <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Code (will be uppercased)</label>
+                    <input type="text" id="new-promo-code" placeholder="e.g. SUMMER2026"
+                        style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#e0e0e0;font-size:14px;font-family:monospace;text-transform:uppercase">
+                </div>
+                <div style="min-width:200px">
+                    <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Label (optional)</label>
+                    <input type="text" id="new-promo-label" placeholder="e.g. Summer promo"
+                        style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#e0e0e0;font-size:14px;">
+                </div>
+                <button class="btn btn-primary" style="padding:10px 20px;height:40px" onclick="addPromoCode()">Add Code</button>
+            </div>
+        `;
+
+        const activeHtml = activeCodes.length > 0 ? `
+            <div class="section-title" style="margin-top:24px">Active Codes (${activeCodes.length})</div>
+            ${activeCodes.map(c => `
+                <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px">
+                    <div>
+                        <span style="font-family:monospace;font-size:16px;font-weight:700;color:#30d158">${escapeHtml(c.id)}</span>
+                        ${c.label ? `<span style="margin-left:12px;font-size:12px;color:#888">${escapeHtml(c.label)}</span>` : ""}
+                        ${c.createdAt ? `<span style="margin-left:12px;font-size:11px;color:#555">${formatDate(c.createdAt)}</span>` : ""}
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-secondary" onclick="togglePromoCode('${escapeHtml(c.id)}', false)">Deactivate</button>
+                        <button class="btn btn-danger" onclick="deletePromoCode('${escapeHtml(c.id)}')">Delete</button>
+                    </div>
+                </div>
+            `).join("")}
+        ` : "";
+
+        const inactiveHtml = inactiveCodes.length > 0 ? `
+            <div class="section-title" style="margin-top:24px">Inactive Codes (${inactiveCodes.length})</div>
+            ${inactiveCodes.map(c => `
+                <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;opacity:0.6">
+                    <div>
+                        <span style="font-family:monospace;font-size:16px;font-weight:700;color:#666;text-decoration:line-through">${escapeHtml(c.id)}</span>
+                        ${c.label ? `<span style="margin-left:12px;font-size:12px;color:#555">${escapeHtml(c.label)}</span>` : ""}
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-primary" onclick="togglePromoCode('${escapeHtml(c.id)}', true)">Reactivate</button>
+                        <button class="btn btn-danger" onclick="deletePromoCode('${escapeHtml(c.id)}')">Delete</button>
+                    </div>
+                </div>
+            `).join("")}
+        ` : "";
+
+        const emptyHtml = codes.length === 0 ? `
+            <div class="empty" style="margin-top:24px"><div class="empty-icon">🎟️</div><p>No promo codes yet. Add one above.</p></div>
+        ` : "";
+
+        return `<div class="stats">
+            <div class="stat-card"><div class="stat-value" style="color:#30d158">${activeCodes.length}</div><div class="stat-label">Active Codes</div></div>
+            <div class="stat-card"><div class="stat-value" style="color:#666">${inactiveCodes.length}</div><div class="stat-label">Inactive Codes</div></div>
+        </div>` + formHtml + activeHtml + inactiveHtml + emptyHtml;
+    }
+
+    window.addPromoCode = async function() {
+        const input = document.getElementById("new-promo-code");
+        const labelInput = document.getElementById("new-promo-label");
+        const code = (input.value || "").trim().toUpperCase();
+        const label = (labelInput.value || "").trim();
+
+        if (!code) { alert("Please enter a code."); return; }
+        if (code.length < 3) { alert("Code must be at least 3 characters."); return; }
+
+        // Check for duplicates
+        if ((cachedData.masterCodes || []).some(c => c.id === code)) {
+            alert("This code already exists."); return;
+        }
+
+        try {
+            const data = { active: true, createdAt: new Date() };
+            if (label) data.label = label;
+            await setDoc(doc(db, "masterCodes", code), data);
+            cachedData.masterCodes = [...(cachedData.masterCodes || []), { id: code, ...data }];
+            renderTab();
+        } catch (e) {
+            alert("Failed to add code: " + e.message);
+        }
+    };
+
+    window.togglePromoCode = async function(code, active) {
+        try {
+            await updateDoc(doc(db, "masterCodes", code), { active });
+            const c = (cachedData.masterCodes || []).find(x => x.id === code);
+            if (c) c.active = active;
+            renderTab();
+        } catch (e) {
+            alert("Failed to update code: " + e.message);
+        }
+    };
+
+    window.deletePromoCode = function(code) {
+        showConfirm("Delete Promo Code", `Delete "${code}"? Users will no longer be able to sign up with this code.`, async () => {
+            await deleteDoc(doc(db, "masterCodes", code));
+            cachedData.masterCodes = (cachedData.masterCodes || []).filter(c => c.id !== code);
+            renderTab();
+        });
+    };
+
     // ── Users ──
     function renderUsers() {
         const items = cachedData.users || [];
@@ -1001,6 +1181,178 @@
                     </div>
                 </div>
             `).join("");
+    }
+
+    // ── Referrals ──
+    function renderReferrals() {
+        const users = cachedData.users || [];
+
+        // Build a map of referralCode -> user for quick lookup
+        const codeToUser = {};
+        users.forEach(u => {
+            if (u.referralCode) {
+                codeToUser[u.referralCode.toUpperCase()] = u;
+            }
+        });
+
+        // Build referral chains: for each user who has a referredBy, find who referred them
+        const referrals = [];
+        users.forEach(u => {
+            if (u.referredBy) {
+                const referrer = codeToUser[u.referredBy.toUpperCase()];
+                referrals.push({
+                    referredUser: u,
+                    referredByCode: u.referredBy.toUpperCase(),
+                    referrerUser: referrer || null
+                });
+            }
+        });
+
+        // Count how many people each user has referred
+        const referralCounts = {};
+        referrals.forEach(r => {
+            if (r.referrerUser) {
+                const key = r.referrerUser.id;
+                referralCounts[key] = (referralCounts[key] || 0) + 1;
+            }
+        });
+
+        // Sort leaderboard by count descending
+        const leaderboard = Object.entries(referralCounts)
+            .map(([uid, count]) => {
+                const user = users.find(u => u.id === uid);
+                return { user, count };
+            })
+            .filter(e => e.user)
+            .sort((a, b) => b.count - a.count);
+
+        // Also check for promo code referrals (referredBy matches a masterCode, not a user code)
+        const masterCodes = (cachedData.masterCodes || []).map(c => c.id.toUpperCase());
+        const promoReferrals = referrals.filter(r => !r.referrerUser && masterCodes.includes(r.referredByCode));
+        const userReferrals = referrals.filter(r => r.referrerUser);
+
+        // Stats
+        const totalReferred = referrals.length;
+        const totalReferrers = leaderboard.length;
+        const promoCount = promoReferrals.length;
+
+        const statsHtml = `<div class="stats">
+            <div class="stat-card"><div class="stat-value">${totalReferred}</div><div class="stat-label">Total Referred Users</div></div>
+            <div class="stat-card"><div class="stat-value">${totalReferrers}</div><div class="stat-label">Users Who Referred</div></div>
+            <div class="stat-card"><div class="stat-value" style="color:#30d158">${promoCount}</div><div class="stat-label">Via Promo Codes</div></div>
+            <div class="stat-card"><div class="stat-value">${leaderboard.length > 0 ? leaderboard[0].count : 0}</div><div class="stat-label">Top Referrer Count</div></div>
+        </div>`;
+
+        // Leaderboard
+        const leaderboardHtml = leaderboard.length > 0 ? `
+            <div class="section-title">Referral Leaderboard</div>
+            <div class="card" style="padding:0;overflow:hidden">
+                <table style="width:100%;border-collapse:collapse;font-size:13px">
+                    <thead>
+                        <tr style="background:#1a1a1a;text-align:left">
+                            <th style="padding:10px 16px;color:#888;font-weight:600">#</th>
+                            <th style="padding:10px 16px;color:#888;font-weight:600">User</th>
+                            <th style="padding:10px 16px;color:#888;font-weight:600">Code</th>
+                            <th style="padding:10px 16px;color:#888;font-weight:600;text-align:right">Referrals</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${leaderboard.map((entry, i) => `
+                            <tr style="border-top:1px solid #222">
+                                <td style="padding:10px 16px;color:#555;font-weight:700">${i + 1}</td>
+                                <td style="padding:10px 16px">
+                                    <span style="font-weight:600">${escapeHtml(entry.user.username || "unknown")}</span>
+                                    <span style="margin-left:8px;font-size:11px;color:#555">${escapeHtml(entry.user.email || "")}</span>
+                                </td>
+                                <td style="padding:10px 16px;font-family:monospace;color:#30d158">${escapeHtml(entry.user.referralCode || "")}</td>
+                                <td style="padding:10px 16px;text-align:right;font-weight:700;font-size:15px">${entry.count}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        ` : "";
+
+        // Promo code signups
+        const promoHtml = promoReferrals.length > 0 ? `
+            <div class="section-title" style="margin-top:24px">Promo Code Signups</div>
+            ${promoReferrals.map(r => `
+                <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px">
+                    <div>
+                        <span style="font-weight:600">${escapeHtml(r.referredUser.username || "unknown")}</span>
+                        <span style="margin-left:8px;font-size:11px;color:#555">${escapeHtml(r.referredUser.email || "")}</span>
+                    </div>
+                    <span style="font-family:monospace;font-size:13px;color:#30d158;background:#1a2e1a;padding:4px 10px;border-radius:4px">${escapeHtml(r.referredByCode)}</span>
+                </div>
+            `).join("")}
+        ` : "";
+
+        // Full referral list
+        const listHtml = `
+            <div class="section-title" style="margin-top:24px">All Referrals (${userReferrals.length})</div>
+            ${userReferrals.length === 0 ? '<div class="empty"><div class="empty-icon">🔗</div><p>No user referrals yet</p></div>' :
+            userReferrals.map(r => `
+                <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px">
+                    <div style="display:flex;align-items:center;gap:12px;flex:1">
+                        <div style="min-width:0;flex:1">
+                            <div style="font-weight:600">${escapeHtml(r.referredUser.username || "unknown")}</div>
+                            <div style="font-size:11px;color:#555">${escapeHtml(r.referredUser.email || "")}</div>
+                        </div>
+                        <div style="color:#555;font-size:18px">←</div>
+                        <div style="min-width:0;flex:1;text-align:right">
+                            <div style="font-weight:600;color:#30d158">${escapeHtml(r.referrerUser.username || "unknown")}</div>
+                            <div style="font-size:11px;color:#555;font-family:monospace">${escapeHtml(r.referredByCode)}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join("")}
+        `;
+
+        return statsHtml + leaderboardHtml + promoHtml + listHtml;
+    }
+
+    // ── Contact Messages ──
+    function renderContactMessages() {
+        const msgs = cachedData.contactMessages || [];
+        if (msgs.length === 0) {
+            return '<div class="empty"><div class="empty-icon">✉️</div><p>No contact messages</p></div>';
+        }
+
+        return `<div class="section-title">Contact Messages (${msgs.length})</div>` +
+        msgs.map(m => `
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">${escapeHtml(m.name)}</div>
+                        <div class="card-subtitle">${escapeHtml(m.email)} • ${formatDate(m.createdAt)}</div>
+                    </div>
+                    <button class="btn btn-danger" onclick="deleteContactMessage('${m.id}')">Delete</button>
+                </div>
+                <div class="card-body" style="white-space: pre-wrap; margin-top: 12px; background: #222; padding: 12px; border-radius: 6px; border: 1px solid #333;">${escapeHtml(m.message)}</div>
+            </div>
+        `).join("");
+    }
+
+    window.deleteContactMessage = function(id) {
+        showConfirm("Delete Message", "This will permanently remove this contact message.", async () => {
+            await deleteDoc(doc(db, "contactMessages", id));
+            cachedData.contactMessages = (cachedData.contactMessages || []).filter(m => m.id !== id);
+            renderTab();
+            updateContactBadge();
+        });
+    };
+
+    function updateContactBadge() {
+        const count = (cachedData.contactMessages || []).length;
+        const badge = document.getElementById("contact-badge");
+        if (badge) {
+            if (count > 0) {
+                badge.style.display = "inline-block";
+                badge.textContent = count;
+            } else {
+                badge.style.display = "none";
+            }
+        }
     }
 </script>
 

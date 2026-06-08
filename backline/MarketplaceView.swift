@@ -22,7 +22,7 @@ struct MarketplaceView: View {
     @Environment(MessagesManager.self) private var messagesManager
 
     @State private var searchText = ""
-    @State private var selectedSegment: MarketplaceSegment = .goods
+    @Binding var selectedSegment: MarketplaceSegment
     @State private var selectedCategory: ListingCategory?
     @State private var selectedServiceCategory: ServiceCategory?
     @State private var navigateToChat = false

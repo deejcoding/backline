@@ -10,10 +10,10 @@ import SwiftUI
 struct GigsView: View {
 
     @Binding var navigationPath: NavigationPath
+    @Binding var selectedSegment: Int
 
     @Environment(ListingManager.self) private var listingManager
 
-    @State private var selectedSegment = 0
     @State private var searchText = ""
 
     var body: some View {

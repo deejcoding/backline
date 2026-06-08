@@ -1,7 +1,8 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp, applicationDefault } = require("firebase-admin/app");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { getAuth } = require("firebase-admin/auth");
 const { getStorage } = require("firebase-admin/storage");
@@ -344,6 +345,280 @@ exports.notifyContentRemoval = onCall(async (request) => {
 });
 
 /**
+ * Sends push notifications to a user's connections when they post a show flyer.
+ *
+ * Trigger: showFlyers/{flyerId}
+ *
+ * Looks up the poster's accepted connections, gets each connection's FCM token,
+ * and sends a notification that deep-links to the flyer.
+ */
+exports.sendShowFlyerNotification = onDocumentCreated(
+  "showFlyers/{flyerId}",
+  async (event) => {
+    const flyerData = event.data?.data();
+    if (!flyerData) return;
+
+    const { posterUID, posterUsername, title } = flyerData;
+    const flyerId = event.params.flyerId;
+
+    if (!posterUID) return;
+
+    const db = getFirestore();
+
+    // Find all accepted connections where the poster is a participant
+    const connectionsSnap = await db
+      .collection("connectionRequests")
+      .where("participants", "array-contains", posterUID)
+      .where("status", "==", "accepted")
+      .get();
+
+    if (connectionsSnap.empty) return;
+
+    // Collect the UIDs of all connected users
+    const connectedUIDs = connectionsSnap.docs
+      .map((doc) => {
+        const participants = doc.data().participants || [];
+        return participants.find((uid) => uid !== posterUID);
+      })
+      .filter(Boolean);
+
+    if (connectedUIDs.length === 0) return;
+
+    // Fetch FCM tokens for all connected users (batch in chunks of 30 for Firestore `in` query limit)
+    const tokens = [];
+    for (let i = 0; i < connectedUIDs.length; i += 30) {
+      const chunk = connectedUIDs.slice(i, i + 30);
+      const usersSnap = await db
+        .collection("users")
+        .where("__name__", "in", chunk)
+        .get();
+
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data();
+        const fcmToken = userData.fcmToken;
+        // Skip users who have blocked the poster
+        const blockedUsers = userData.blockedUsers || [];
+        if (fcmToken && !blockedUsers.includes(posterUID)) {
+          tokens.push({ uid: userDoc.id, token: fcmToken });
+        }
+      }
+    }
+
+    if (tokens.length === 0) return;
+
+    const displayName = posterUsername || "Someone";
+    const flyerTitle = title || "a show";
+
+    // Send notifications to all connected users
+    const sendPromises = tokens.map(async ({ uid, token }) => {
+      const message = {
+        token: token,
+        notification: {
+          title: `${displayName} posted a show`,
+          body: flyerTitle,
+        },
+        data: {
+          type: "showFlyer",
+          flyerId: flyerId,
+          posterUID: posterUID,
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              badge: 1,
+            },
+          },
+        },
+      };
+
+      try {
+        await getMessaging().send(message);
+      } catch (error) {
+        if (
+          error.code === "messaging/invalid-registration-token" ||
+          error.code === "messaging/registration-token-not-registered"
+        ) {
+          await db.collection("users").doc(uid).update({ fcmToken: null });
+        }
+      }
+    });
+
+    await Promise.allSettled(sendPromises);
+  }
+);
+
+/**
+ * Callable function: deletes a user's account and all associated data.
+ *
+ * Must be called by the authenticated user themselves.
+ * Deletes: user doc, listings, service listings, ISO posts,
+ * conversations, connection requests, reports, profile photo,
+ * listing photos, and the Firebase Auth record.
+ */
+/**
+ * Sends push notifications to users whose roles match a newly posted ISO post.
+ *
+ * Trigger: isoPosts/{postId}
+ *
+ * Reads the roleNeeded from the new post, finds users with matching roles
+ * using synonym-aware matching, and sends notifications to each.
+ */
+exports.sendISOPostRoleMatchNotification = onDocumentCreated(
+  "isoPosts/{postId}",
+  async (event) => {
+    const postData = event.data?.data();
+    if (!postData) return;
+
+    const { roleNeeded, posterUID, posterUsername } = postData;
+    const postId = event.params.postId;
+
+    if (!roleNeeded || !posterUID) return;
+
+    const db = getFirestore();
+
+    // Synonym groups — mirrors the client-side roleSynonyms
+    const roleSynonyms = [
+      ["drums", "drummer", "percussionist", "percussion"],
+      ["guitar", "guitarist"],
+      ["bass", "bassist", "bass player"],
+      ["vocals", "vocalist", "singer"],
+      ["keyboardist", "keyboard", "keys", "pianist", "piano"],
+      ["synth", "synthesizer", "synth player"],
+      ["producing", "producer", "music producer"],
+      ["dj", "disc jockey"],
+      ["rapper", "mc", "emcee"],
+      ["mixing engineer", "mixer", "mix engineer"],
+      ["mastering engineer", "mastering"],
+      ["recording engineer", "recording"],
+      ["live sound engineering", "live sound", "sound engineer", "sound tech", "audio engineer"],
+      ["graphic design", "graphic designer", "designer"],
+      ["videography", "videographer", "video"],
+      ["photography", "photographer"],
+      ["managing", "manager", "band manager"],
+      ["songwriting", "songwriter"],
+      ["beat maker", "beatmaker", "beat producer"],
+      ["saxophone", "sax", "sax player"],
+      ["flute", "flutist", "flautist"],
+      ["trumpet", "trumpeter"],
+      ["violin", "violinist", "fiddle"],
+      ["cello", "cellist"],
+      ["banjo", "banjoist"],
+      ["harp", "harpist"],
+      ["accordion", "accordionist"],
+      ["mandolin", "mandolinist"],
+      ["upright bass", "double bass", "standup bass"],
+      ["steel guitar", "pedal steel", "lap steel"],
+      ["booking", "booker", "booking agent"],
+      ["tour managing", "tour manager"],
+      ["promoter", "concert promoter"],
+      ["venue manager", "venue"],
+      ["noise artist", "noise", "experimental"],
+      ["vocal coach", "voice coach", "voice teacher"],
+      ["lighting", "lighting operator", "lighting designer", "lights"],
+      ["a&r", "artists and repertoire"],
+      ["publicist", "press", "public relations", "pr"],
+      ["music video director", "video director", "music video"],
+      ["tambourine"],
+      ["vocal arrangement"],
+      ["lessons"],
+      ["rehearsal space"],
+      ["studio rental"],
+      ["social media"],
+      ["diy organizer"],
+    ];
+
+    function roleMatches(userRole, postRole) {
+      const u = userRole.toLowerCase();
+      const p = postRole.toLowerCase();
+
+      // Direct substring match
+      if (u.includes(p) || p.includes(u)) return true;
+
+      // Synonym group match
+      for (const group of roleSynonyms) {
+        const uInGroup = group.some((s) => u.includes(s) || s.includes(u));
+        const pInGroup = group.some((s) => p.includes(s) || s.includes(p));
+        if (uInGroup && pInGroup) return true;
+      }
+
+      return false;
+    }
+
+    // Fetch all users who have roles set
+    // (Firestore doesn't support "array-contains-any" with dynamic matching,
+    //  so we fetch users who have non-empty roles arrays and filter in code)
+    const usersSnap = await db
+      .collection("users")
+      .where("roles", "!=", [])
+      .get();
+
+    if (usersSnap.empty) return;
+
+    const tokens = [];
+    for (const userDoc of usersSnap.docs) {
+      // Skip the poster themselves
+      if (userDoc.id === posterUID) continue;
+
+      const userData = userDoc.data();
+      const fcmToken = userData.fcmToken;
+      if (!fcmToken) continue;
+
+      // Skip users who have blocked the poster
+      const blockedUsers = userData.blockedUsers || [];
+      if (blockedUsers.includes(posterUID)) continue;
+
+      // Check if any of the user's roles match the post's roleNeeded
+      const userRoles = userData.roles || [];
+      const hasMatch = userRoles.some((role) => roleMatches(role, roleNeeded));
+      if (hasMatch) {
+        tokens.push({ uid: userDoc.id, token: fcmToken });
+      }
+    }
+
+    if (tokens.length === 0) return;
+
+    const displayName = posterUsername || "Someone";
+
+    const sendPromises = tokens.map(async ({ uid, token }) => {
+      const message = {
+        token: token,
+        notification: {
+          title: `New gig for you: ${roleNeeded}`,
+          body: `@${displayName} is looking for a ${roleNeeded}`,
+        },
+        data: {
+          type: "isoPost",
+          postId: postId,
+          posterUID: posterUID,
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              badge: 1,
+            },
+          },
+        },
+      };
+
+      try {
+        await getMessaging().send(message);
+      } catch (error) {
+        if (
+          error.code === "messaging/invalid-registration-token" ||
+          error.code === "messaging/registration-token-not-registered"
+        ) {
+          await db.collection("users").doc(uid).update({ fcmToken: null });
+        }
+      }
+    });
+
+    await Promise.allSettled(sendPromises);
+  }
+);
+
+/**
  * Callable function: deletes a user's account and all associated data.
  *
  * Must be called by the authenticated user themselves.
@@ -452,3 +727,149 @@ exports.deleteUserAccount = onCall(async (request) => {
     throw new HttpsError("internal", "Failed to delete account: " + error.message);
   }
 });
+
+/**
+ * Scheduled function: sends weekly "X people viewed your profile" push notifications.
+ * Runs every Monday at 10:00 AM Eastern Time.
+ * Queries profileViews from the last 7 days, groups by viewed user,
+ * counts unique viewers, and sends a notification to each user.
+ */
+exports.sendWeeklyProfileViewNotifications = onSchedule(
+  {
+    schedule: "every monday 10:00",
+    timeZone: "America/New_York",
+  },
+  async () => {
+    const db = getFirestore();
+
+    const oneWeekAgo = Timestamp.fromDate(
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    );
+
+    // 1. Fetch all profile views from the last 7 days
+    const snapshot = await db
+      .collection("profileViews")
+      .where("timestamp", ">=", oneWeekAgo)
+      .get();
+
+    if (snapshot.empty) {
+      console.log("No profile views this week.");
+      return;
+    }
+
+    // 2. Group by viewedUID, count unique viewers
+    const viewsByUser = {};
+    snapshot.docs.forEach((doc) => {
+      const { viewedUID, viewerUID } = doc.data();
+      if (!viewedUID) return;
+      if (!viewsByUser[viewedUID]) {
+        viewsByUser[viewedUID] = new Set();
+      }
+      viewsByUser[viewedUID].add(viewerUID);
+    });
+
+    // 3. Save weekly summary for each user and send notification if >= 5 views
+    const weekId = new Date().toISOString().slice(0, 10); // e.g. "2026-06-09"
+
+    const sendPromises = Object.entries(viewsByUser).map(
+      async ([viewedUID, viewers]) => {
+        const uniqueCount = viewers.size;
+        const totalViews = snapshot.docs.filter(
+          (doc) => doc.data().viewedUID === viewedUID
+        ).length;
+
+        // Save weekly summary to users/{uid}/profileAnalytics/{weekId}
+        try {
+          await db
+            .collection("users")
+            .doc(viewedUID)
+            .collection("profileAnalytics")
+            .doc(weekId)
+            .set({
+              weekOf: weekId,
+              uniqueViewers: uniqueCount,
+              totalViews: totalViews,
+              timestamp: FieldValue.serverTimestamp(),
+            });
+        } catch (err) {
+          console.error(
+            `Error saving analytics for ${viewedUID}:`,
+            err
+          );
+        }
+
+        // Only send push notification if >= 5 unique viewers
+        if (uniqueCount < 5) return;
+
+        try {
+          const userDoc = await db.collection("users").doc(viewedUID).get();
+          if (!userDoc.exists) return;
+
+          const userData = userDoc.data();
+          const fcmToken = userData.fcmToken;
+          if (!fcmToken) return;
+
+          const bodyText = `${uniqueCount} people viewed your profile this week.`;
+
+          const message = {
+            token: fcmToken,
+            notification: {
+              title: "Your profile is getting noticed",
+              body: bodyText,
+            },
+            data: {
+              type: "profile",
+              uid: viewedUID,
+              username: userData.username || "",
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: "default",
+                },
+              },
+            },
+          };
+
+          await getMessaging().send(message);
+          console.log(
+            `Sent weekly profile view notification to ${viewedUID} (${uniqueCount} views)`
+          );
+        } catch (error) {
+          console.error(
+            `Error sending profile view notification to ${viewedUID}:`,
+            error
+          );
+          if (
+            error.code === "messaging/invalid-registration-token" ||
+            error.code === "messaging/registration-token-not-registered"
+          ) {
+            await db
+              .collection("users")
+              .doc(viewedUID)
+              .update({ fcmToken: null });
+          }
+        }
+      }
+    );
+
+    await Promise.allSettled(sendPromises);
+
+    // 4. Clean up old profileViews (older than 30 days)
+    const thirtyDaysAgo = Timestamp.fromDate(
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    );
+    const oldDocs = await db
+      .collection("profileViews")
+      .where("timestamp", "<", thirtyDaysAgo)
+      .limit(500)
+      .get();
+
+    if (!oldDocs.empty) {
+      const batch = db.batch();
+      oldDocs.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+      console.log(`Cleaned up ${oldDocs.size} old profile view records.`);
+    }
+  }
+);

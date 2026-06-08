@@ -28,6 +28,7 @@ struct PublicProfileView: View {
     @State private var featuredProjects: [SpotifyTrack] = []
     @State private var genres: [String] = []
     @State private var roles: [String] = []
+    @State private var neighborhood: String?
     @State private var userListings: [Listing] = []
     @State private var userServices: [ServiceListing] = []
     @State private var userIsoPosts: [ISOPost] = []
@@ -117,14 +118,14 @@ struct PublicProfileView: View {
                                 musicSection
                             }
 
+                            // Show Flyers (upcoming + past)
+                            if !userFlyers.isEmpty {
+                                showFlyersSection
+                            }
+
                             // Services
                             if !userServices.isEmpty {
                                 servicesSection
-                            }
-
-                            // Show Flyers (non-expired only)
-                            if !userFlyers.filter({ !$0.isExpired }).isEmpty {
-                                showFlyersSection
                             }
 
                             // ISO Posts
@@ -231,6 +232,9 @@ struct PublicProfileView: View {
         }
         .task {
             BLAnalytics.viewProfile(uid: uid)
+            if !isOwnProfile {
+                listingManager.recordProfileView(viewedUID: uid, viewerUID: authManager.currentUser?.uid)
+            }
             await loadProfile()
         }
     }
@@ -270,14 +274,20 @@ struct PublicProfileView: View {
                             .lineLimit(1)
                     }
 
-                    Text("@\(username)")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.65))
-
                     if !roles.isEmpty {
                         Text(roles.first ?? "")
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundStyle(ThemeColor.cyan)
+                    }
+
+                    if let neighborhood, !neighborhood.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "mappin")
+                                .font(.system(size: 9))
+                            Text(neighborhood)
+                                .font(.system(size: 11, design: .monospaced))
+                        }
+                        .foregroundStyle(.white.opacity(0.55))
                     }
 
                     if let handle = instagramHandle, !handle.isEmpty {
@@ -301,16 +311,13 @@ struct PublicProfileView: View {
 
             // Bio
             if let bio, !bio.isEmpty {
-                HStack(alignment: .top, spacing: 0) {
-                    Text("● ")
-                        .foregroundStyle(ThemeColor.green)
-                    Text(bio)
-                }
-                .font(.system(size: 14))
-                .lineSpacing(4)
-                .foregroundStyle(.white.opacity(0.85))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+                Text(bio)
+                    .font(.system(size: 14))
+                    .lineSpacing(4)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
             }
         }
     }
@@ -320,6 +327,7 @@ struct PublicProfileView: View {
     private var canMessage: Bool {
         if targetAllowMessagesFrom == "anyone" { return true }
         if case .connected = connectionsManager.connectionStatus(with: uid) { return true }
+        if targetAllowMessagesFrom == "mutuals" && !mutualConnections.isEmpty { return true }
         return false
     }
 
@@ -791,7 +799,7 @@ struct PublicProfileView: View {
                                     .foregroundStyle(.white.opacity(0.55))
                             }
                             Spacer()
-                            Text(post.budget)
+                            Text(post.budget ?? "")
                                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundStyle(ThemeColor.green)
                         }
@@ -823,6 +831,7 @@ struct PublicProfileView: View {
             instagramHandle = data?["instagramHandle"] as? String
             genres = data?["genres"] as? [String] ?? []
             roles = data?["roles"] as? [String] ?? []
+            neighborhood = data?["neighborhood"] as? String
             targetAllowMessagesFrom = data?["allowMessagesFrom"] as? String ?? "anyone"
 
             if let projectDicts = data?["musicProjects"] as? [[String: String]] {
@@ -1029,14 +1038,17 @@ struct PublicProfileView: View {
     // MARK: - Show Flyers
 
     private var showFlyersSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            BroadcastSectionHeader(label: "Upcoming Shows")
+        let upcoming = userFlyers.filter { !$0.isExpired }.sorted { ($0.eventDate ?? .distantFuture) < ($1.eventDate ?? .distantFuture) }
+        let past = userFlyers.filter { $0.isExpired }.sorted { ($0.eventDate ?? .distantPast) > ($1.eventDate ?? .distantPast) }
+
+        return VStack(alignment: .leading, spacing: 10) {
+            BroadcastSectionHeader(label: "Shows")
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(userFlyers.filter { !$0.isExpired }) { flyer in
+                    ForEach(upcoming + past) { flyer in
                         NavigationLink(value: flyer) {
-                            publicFlyerCard(flyer)
+                            publicFlyerCard(flyer, isPast: flyer.isExpired)
                         }
                         .buttonStyle(.plain)
                     }
@@ -1047,7 +1059,7 @@ struct PublicProfileView: View {
         .padding(.top, 8)
     }
 
-    private func publicFlyerCard(_ flyer: ShowFlyer) -> some View {
+    private func publicFlyerCard(_ flyer: ShowFlyer, isPast: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Color.clear
                 .frame(width: 120, height: 160)
@@ -1065,6 +1077,7 @@ struct PublicProfileView: View {
                     }
                 }
                 .clipped()
+                .opacity(isPast ? 0.6 : 1.0)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(flyer.title)
@@ -1073,15 +1086,16 @@ struct PublicProfileView: View {
 
                 if let venue = flyer.venue, !venue.isEmpty {
                     Text(venue)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundStyle(ThemeColor.cyan)
                         .lineLimit(1)
                 }
 
-                if let eventDate = flyer.eventDate {
-                    Text(eventDate.formatted(date: .abbreviated, time: .omitted))
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(ThemeColor.yellow)
+                if isPast {
+                    Text("PAST")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .tracking(0.5)
+                        .foregroundStyle(.white.opacity(0.45))
                 }
             }
             .padding(.horizontal, 6)

@@ -182,10 +182,12 @@ struct ISOFeedView: View {
 
                     // Meta row
                     HStack(spacing: 6) {
-                        Text(post.budget)
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundStyle(ThemeColor.green)
-                            .tracking(-0.1)
+                        if let budget = post.budget, !budget.isEmpty {
+                            Text(budget)
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                .foregroundStyle(ThemeColor.green)
+                                .tracking(-0.1)
+                        }
 
                         if let genres = posterGenres(for: post.posterUID), !genres.isEmpty {
                             Text("·")

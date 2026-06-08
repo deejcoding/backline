@@ -25,6 +25,7 @@ struct ListingDetailView: View {
     @State private var showReportSheet = false
     @State private var showBlockConfirmation = false
     @State private var showGuestPrompt = false
+    @State private var fullscreenPhotoIndex: Int?
 
     private var isOwnListing: Bool {
         listing.sellerUID == authManager.currentUser?.uid
@@ -47,6 +48,10 @@ struct ListingDetailView: View {
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                             }
                             .accessibilityLabel("Photo \(index + 1) of \(listing.photoURLs.count) for \(listing.title)")
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                fullscreenPhotoIndex = index
+                            }
                         }
                     }
                 }
@@ -304,6 +309,12 @@ struct ListingDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to delete this listing? This cannot be undone.")
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { fullscreenPhotoIndex != nil },
+            set: { if !$0 { fullscreenPhotoIndex = nil } }
+        )) {
+            PhotoFullscreenView(photoURLs: listing.photoURLs, startIndex: fullscreenPhotoIndex ?? 0)
         }
     }
 

@@ -37,7 +37,7 @@ struct UserProfileTests {
         #expect(profile.completenessScore == 1)
     }
 
-    @Test func fullyCompleteProfileScoresFive() {
+    @Test func fullyCompleteProfileScoresSix() {
         let profile = UserProfile(
             id: "uid1",
             username: "testuser",
@@ -45,9 +45,10 @@ struct UserProfileTests {
             profilePhotoURL: "https://example.com/photo.jpg",
             roles: ["Guitarist"],
             genres: ["Rock"],
-            bio: "I play guitar"
+            bio: "I play guitar",
+            neighborhood: "Williamsburg, Brooklyn"
         )
-        #expect(profile.completenessScore == 5)
+        #expect(profile.completenessScore == 6)
     }
 
     @Test func profileWithRolesAndGenresScoresTwo() {

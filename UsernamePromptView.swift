@@ -13,8 +13,6 @@ struct UsernamePromptView: View {
 
     @State private var username = ""
     @State private var referralCode = ""
-    @State private var confirmedAge = false
-    @State private var agreedToTerms = false
 
     var isUsernameValid: Bool {
         !username.isEmpty && username.range(of: #"^[a-zA-Z0-9_]+$"#, options: .regularExpression) != nil
@@ -92,40 +90,6 @@ struct UsernamePromptView: View {
                         .padding(.horizontal)
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Button {
-                        confirmedAge.toggle()
-                    } label: {
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: confirmedAge ? "checkmark.square.fill" : "square")
-                                .font(.system(size: 16))
-                                .foregroundStyle(confirmedAge ? ThemeColor.cyan : .white.opacity(0.4))
-                            Text("I confirm that I am 18 years or older")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.7))
-                                .multilineTextAlignment(.leading)
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        agreedToTerms.toggle()
-                    } label: {
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: agreedToTerms ? "checkmark.square.fill" : "square")
-                                .font(.system(size: 16))
-                                .foregroundStyle(agreedToTerms ? ThemeColor.cyan : .white.opacity(0.4))
-                            Text("I agree to the [\(Text("Terms of Service & EULA").underline())](https://backlinenyc.com/terms.html) and [\(Text("Privacy Policy").underline())](https://backlinenyc.com/privacy.html)")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.7))
-                                .tint(.white.opacity(0.7))
-                                .multilineTextAlignment(.leading)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal)
-
                 Button {
                     Task {
                         await authManager.completeSocialRegistration(
@@ -151,8 +115,7 @@ struct UsernamePromptView: View {
                 }
                 .disabled(authManager.isLoading || 
                           (authManager.needsUsername && (!isUsernameValid || isUsernameProfane)) || 
-                          (authManager.needsReferralCode && !isReferralValid) ||
-                          !confirmedAge || !agreedToTerms)
+                          (authManager.needsReferralCode && !isReferralValid))
                 .padding(.horizontal)
 
                 Button("Sign Out") {

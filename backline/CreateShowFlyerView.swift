@@ -24,6 +24,7 @@ struct CreateShowFlyerView: View {
     @State private var eventDate = Date()
     @State private var contactInfoWarning: String?
     @State private var ticketURLString: String = "" // optional
+    @State private var lookingForSupport = false
 
     // MARK: - Validation
 
@@ -90,6 +91,8 @@ struct CreateShowFlyerView: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
+
+                    Toggle("Looking for Support", isOn: $lookingForSupport)
                 }
 
                 Section {
@@ -167,6 +170,7 @@ struct CreateShowFlyerView: View {
             venue: trimmedVenue.isEmpty ? nil : trimmedVenue,
             eventDate: includeDate ? eventDate : nil,
             ticketURL: ticketURLString.trimmingCharacters(in: .whitespaces).isEmpty ? nil : ticketURLString.trimmingCharacters(in: .whitespaces),
+            lookingForSupport: lookingForSupport,
             image: image,
             posterUID: uid,
             posterUsername: username

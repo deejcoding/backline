@@ -2,6 +2,17 @@
   "projects": {
     "default": "backline-7e769"
   },
-  "targets": {},
+  "targets": {
+    "backline-7e769": {
+      "hosting": {
+        "admin": [
+          "backline-7e769"
+        ],
+        "site": [
+          "backline-site"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

@@ -159,6 +159,19 @@ struct ShowFlyersFeedView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 10)
+
+            // "Looking for Support" badge
+            if flyer.lookingForSupport == true {
+                Text("LOOKING FOR SUPPORT")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .tracking(0.4)
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(ThemeColor.cyan)
+                    .padding(6)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
         }
         .overlay(
             Rectangle()

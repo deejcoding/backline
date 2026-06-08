@@ -18,8 +18,9 @@ struct UserProfile: Identifiable, Hashable {
     var roles: [String]
     var genres: [String]
     var bio: String?
+    var neighborhood: String?
 
-    /// 0–5 score based on how complete the profile is.
+    /// 0–6 score based on how complete the profile is.
     var completenessScore: Int {
         var score = 0
         if profilePhotoURL != nil && !(profilePhotoURL?.isEmpty ?? true) { score += 1 }
@@ -27,6 +28,7 @@ struct UserProfile: Identifiable, Hashable {
         if !roles.isEmpty { score += 1 }
         if !genres.isEmpty { score += 1 }
         if bio != nil && !(bio?.isEmpty ?? true) { score += 1 }
+        if neighborhood != nil && !(neighborhood?.isEmpty ?? true) { score += 1 }
         return score
     }
 }
@@ -73,6 +75,7 @@ final class ListingManager {
                 let roles = data["roles"] as? [String] ?? []
                 let genres = data["genres"] as? [String] ?? []
                 let bio = data["bio"] as? String
+                let neighborhood = data["neighborhood"] as? String
                 return UserProfile(
                     id: doc.documentID,
                     username: username,
@@ -80,7 +83,8 @@ final class ListingManager {
                     profilePhotoURL: photoURL,
                     roles: roles,
                     genres: genres,
-                    bio: bio
+                    bio: bio,
+                    neighborhood: neighborhood
                 )
             }
         } catch {
@@ -611,12 +615,12 @@ final class ListingManager {
                 guard let categoryRaw = data["category"] as? String,
                       let category = ISOCategory(rawValue: categoryRaw),
                       let roleNeeded = data["roleNeeded"] as? String,
-                      let budget = data["budget"] as? String,
                       let description = data["description"] as? String,
                       let posterUID = data["posterUID"] as? String,
                       let posterUsername = data["posterUsername"] as? String
                 else { return nil }
 
+                let budget = data["budget"] as? String
                 let location = data["location"] as? String
                 let timeframe = (data["timeframe"] as? Timestamp)?.dateValue()
                 let isOngoing = data["isOngoing"] as? Bool
@@ -653,12 +657,12 @@ final class ListingManager {
                 guard let categoryRaw = data["category"] as? String,
                       let category = ISOCategory(rawValue: categoryRaw),
                       let roleNeeded = data["roleNeeded"] as? String,
-                      let budget = data["budget"] as? String,
                       let description = data["description"] as? String,
                       let posterUID = data["posterUID"] as? String,
                       let posterUsername = data["posterUsername"] as? String
                 else { return nil }
 
+                let budget = data["budget"] as? String
                 let location = data["location"] as? String
                 let timeframe = (data["timeframe"] as? Timestamp)?.dateValue()
                 let isOngoing = data["isOngoing"] as? Bool
@@ -691,7 +695,7 @@ final class ListingManager {
         location: String?,
         timeframe: Date?,
         isOngoing: Bool,
-        budget: String,
+        budget: String?,
         description: String,
         posterUID: String,
         posterUsername: String
@@ -711,12 +715,14 @@ final class ListingManager {
                 "id": docId,
                 "category": category.rawValue,
                 "roleNeeded": roleNeeded,
-                "budget": budget,
                 "description": description,
                 "posterUID": posterUID,
                 "posterUsername": posterUsername,
                 "createdAt": FieldValue.serverTimestamp()
             ]
+            if let budget, !budget.isEmpty {
+                data["budget"] = budget
+            }
             if let location, !location.isEmpty {
                 data["location"] = location
             }
@@ -746,7 +752,7 @@ final class ListingManager {
         location: String?,
         timeframe: Date?,
         isOngoing: Bool,
-        budget: String,
+        budget: String?,
         description: String
     ) async {
         isLoading = true
@@ -756,9 +762,13 @@ final class ListingManager {
             var data: [String: Any] = [
                 "category": category.rawValue,
                 "roleNeeded": roleNeeded,
-                "budget": budget,
                 "description": description
             ]
+            if let budget, !budget.isEmpty {
+                data["budget"] = budget
+            } else {
+                data["budget"] = FieldValue.delete()
+            }
             if let location, !location.isEmpty {
                 data["location"] = location
             } else {
@@ -938,12 +948,12 @@ final class ListingManager {
                   let categoryRaw = data["category"] as? String,
                   let category = ISOCategory(rawValue: categoryRaw),
                   let roleNeeded = data["roleNeeded"] as? String,
-                  let budget = data["budget"] as? String,
                   let description = data["description"] as? String,
                   let posterUID = data["posterUID"] as? String,
                   let posterUsername = data["posterUsername"] as? String
             else { return nil }
 
+            let budget = data["budget"] as? String
             let location = data["location"] as? String
             let timeframe = (data["timeframe"] as? Timestamp)?.dateValue()
             let isOngoing = data["isOngoing"] as? Bool
@@ -1092,6 +1102,7 @@ final class ListingManager {
         venue: String?,
         eventDate: Date?,
         ticketURL: String?,
+        lookingForSupport: Bool,
         image: UIImage,
         posterUID: String,
         posterUsername: String
@@ -1124,6 +1135,9 @@ final class ListingManager {
             if let ticketURL, !ticketURL.isEmpty {
                 data["ticketURL"] = ticketURL
             }
+            if lookingForSupport {
+                data["lookingForSupport"] = true
+            }
 
             try await withRetry {
                 try await self.db.collection("showFlyers").document(docId).setData(data)
@@ -1141,7 +1155,8 @@ final class ListingManager {
         title: String,
         venue: String?,
         eventDate: Date?,
-        ticketURL: String?
+        ticketURL: String?,
+        lookingForSupport: Bool
     ) async {
         isLoading = true
         errorMessage = nil
@@ -1165,6 +1180,7 @@ final class ListingManager {
             } else {
                 data["ticketURL"] = FieldValue.delete()
             }
+            data["lookingForSupport"] = lookingForSupport
 
             try await withRetry {
                 try await self.db.collection("showFlyers").document(id).updateData(data)
@@ -1175,12 +1191,14 @@ final class ListingManager {
                 showFlyers[index].venue = venue
                 showFlyers[index].eventDate = eventDate
                 showFlyers[index].ticketURL = ticketURL
+                showFlyers[index].lookingForSupport = lookingForSupport
             }
             if let index = userShowFlyers.firstIndex(where: { $0.id == id }) {
                 userShowFlyers[index].title = title
                 userShowFlyers[index].venue = venue
                 userShowFlyers[index].eventDate = eventDate
                 userShowFlyers[index].ticketURL = ticketURL
+                userShowFlyers[index].lookingForSupport = lookingForSupport
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -1199,5 +1217,16 @@ final class ListingManager {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Profile View Tracking
+
+    func recordProfileView(viewedUID: String, viewerUID: String?) {
+        let data: [String: Any] = [
+            "viewedUID": viewedUID,
+            "viewerUID": viewerUID ?? "anonymous",
+            "timestamp": FieldValue.serverTimestamp()
+        ]
+        db.collection("profileViews").addDocument(data: data)
     }
 }

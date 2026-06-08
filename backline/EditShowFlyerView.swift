@@ -18,6 +18,7 @@ struct EditShowFlyerView: View {
     @State private var includeDate: Bool
     @State private var eventDate: Date
     @State private var ticketURL: String
+    @State private var lookingForSupport: Bool
     @State private var contactInfoWarning: String?
 
     init(flyer: ShowFlyer) {
@@ -27,6 +28,7 @@ struct EditShowFlyerView: View {
         _includeDate = State(initialValue: flyer.eventDate != nil)
         _eventDate = State(initialValue: flyer.eventDate ?? Date())
         _ticketURL = State(initialValue: flyer.ticketURL ?? "")
+        _lookingForSupport = State(initialValue: flyer.lookingForSupport ?? false)
     }
 
     private var formIsValid: Bool {
@@ -63,6 +65,8 @@ struct EditShowFlyerView: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
+
+                    Toggle("Looking for Support", isOn: $lookingForSupport)
                 }
 
                 Section {
@@ -134,7 +138,8 @@ struct EditShowFlyerView: View {
             title: title.trimmingCharacters(in: .whitespaces),
             venue: trimmedVenue.isEmpty ? nil : trimmedVenue,
             eventDate: includeDate ? eventDate : nil,
-            ticketURL: ticketURL.trimmingCharacters(in: .whitespaces).isEmpty ? nil : ticketURL.trimmingCharacters(in: .whitespaces)
+            ticketURL: ticketURL.trimmingCharacters(in: .whitespaces).isEmpty ? nil : ticketURL.trimmingCharacters(in: .whitespaces),
+            lookingForSupport: lookingForSupport
         )
 
         if listingManager.errorMessage == nil {

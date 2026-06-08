@@ -33,6 +33,7 @@ final class AuthenticationManager {
     var featuredProjects: [SpotifyTrack] = []
     var genres: [String] = []
     var roles: [String] = []
+    var neighborhood: String?
     var blockedUsers: [String] = []
     var referralCode: String?
     var allowMessagesFrom: String = "anyone" // "anyone" or "connections"
@@ -61,14 +62,15 @@ final class AuthenticationManager {
     }
 
     /// Profile completeness percentage (0–100).
-    /// +30% photo, +20% bio, +20% music, +15% skills, +15% genres.
+    /// +25% photo, +20% bio, +15% music, +15% skills, +15% genres, +10% neighborhood.
     var profileCompleteness: Int {
         var score = 0
-        if profilePhotoURL != nil { score += 30 }
+        if profilePhotoURL != nil { score += 25 }
         if let bio, !bio.isEmpty { score += 20 }
-        if !musicProjects.isEmpty || !featuredProjects.isEmpty { score += 20 }
+        if !musicProjects.isEmpty || !featuredProjects.isEmpty { score += 15 }
         if !roles.isEmpty { score += 15 }
         if !genres.isEmpty { score += 15 }
+        if let neighborhood, !neighborhood.isEmpty { score += 10 }
         return score
     }
 
@@ -204,6 +206,7 @@ final class AuthenticationManager {
 
                 self.genres = data?["genres"] as? [String] ?? []
                 self.roles = data?["roles"] as? [String] ?? []
+                self.neighborhood = data?["neighborhood"] as? String
                 self.blockedUsers = data?["blockedUsers"] as? [String] ?? []
                 self.referralCode = (data?["referralCode"] as? String)?.uppercased()
                 self.allowMessagesFrom = data?["allowMessagesFrom"] as? String ?? "anyone"
@@ -241,7 +244,10 @@ final class AuthenticationManager {
                     self.updateFCMToken(token)
                 }
             } catch {
-                // Profile fetch failed silently
+                // If profile fetch fails, assume username is missing so the user
+                // is sent to UsernamePromptView instead of MainTabView.
+                // A successful fetch on retry will clear this if they already have one.
+                self.needsUsername = true
             }
         }
     }
@@ -473,12 +479,32 @@ final class AuthenticationManager {
         blPrint("[AuthManager] Validating referral code: '\(trimmed)'")
         guard !trimmed.isEmpty else { return false }
         
-        // Master code for testing/emergency
-        if trimmed == "BACKLINE2026" { 
-            blPrint("[AuthManager] Master code used.")
-            return true 
+        // Hardcoded fallback codes (work even if Firestore is unreachable)
+        let hardcodedCodes: Set<String> = [
+            "BACKLINE2026",
+            "POTLUCK2026",
+        ]
+        if hardcodedCodes.contains(trimmed) {
+            blPrint("[AuthManager] Hardcoded master code used: \(trimmed)")
+            return true
         }
         
+        // Check Firestore masterCodes collection (managed via admin dashboard)
+        do {
+            let masterDoc = try await db.collection("masterCodes").document(trimmed).getDocument()
+            if masterDoc.exists {
+                let data = masterDoc.data()
+                let isActive = data?["active"] as? Bool ?? true
+                if isActive {
+                    blPrint("[AuthManager] Firestore master code used: \(trimmed)")
+                    return true
+                }
+            }
+        } catch {
+            blPrint("[AuthManager] Master codes lookup error: \(error.localizedDescription)")
+        }
+        
+        // Check user referral codes
         do {
             let snapshot = try await db.collection("users")
                 .whereField("referralCode", isEqualTo: trimmed)
@@ -592,7 +618,7 @@ final class AuthenticationManager {
         do {
             try await Auth.auth().sendPasswordReset(withEmail: email)
             BLAnalytics.forgotPassword()
-            errorMessage = "Password reset email sent. Check your inbox."
+            errorMessage = "Password reset email sent. Check your inbox and spam folder."
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -914,6 +940,20 @@ final class AuthenticationManager {
         do {
             try await db.collection("users").document(uid).updateData(["genres": genres])
             self.genres = genres
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func updateNeighborhood(_ neighborhood: String?) async {
+        guard let uid = currentUser?.uid else { return }
+        do {
+            if let neighborhood, !neighborhood.isEmpty {
+                try await db.collection("users").document(uid).updateData(["neighborhood": neighborhood])
+            } else {
+                try await db.collection("users").document(uid).updateData(["neighborhood": FieldValue.delete()])
+            }
+            self.neighborhood = neighborhood
         } catch {
             errorMessage = error.localizedDescription
         }

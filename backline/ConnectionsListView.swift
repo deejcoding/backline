@@ -72,11 +72,9 @@ struct ConnectionsListView: View {
                 }
             }
         }
+        .contentMargins(.bottom, 80)
         .navigationTitle("Connections")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { BLAnalytics.viewConnectionsList() }
-        .navigationDestination(for: ProfileDestination.self) { dest in
-            PublicProfileView(uid: dest.uid, username: dest.username)
-        }
     }
 }

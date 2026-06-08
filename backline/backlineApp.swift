@@ -171,10 +171,28 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
-        if let type = userInfo["type"] as? String,
-           type == "message",
-           let conversationId = userInfo["conversationId"] as? String {
-            deepLinkRouter.pendingDeepLink = .chat(conversationId: conversationId)
+        if let type = userInfo["type"] as? String {
+            switch type {
+            case "message":
+                if let conversationId = userInfo["conversationId"] as? String {
+                    deepLinkRouter.pendingDeepLink = .chat(conversationId: conversationId)
+                }
+            case "showFlyer":
+                if let flyerId = userInfo["flyerId"] as? String {
+                    deepLinkRouter.pendingDeepLink = .flyer(id: flyerId)
+                }
+            case "isoPost":
+                if let postId = userInfo["postId"] as? String {
+                    deepLinkRouter.pendingDeepLink = .iso(id: postId)
+                }
+            case "profile":
+                if let uid = userInfo["uid"] as? String,
+                   let username = userInfo["username"] as? String {
+                    deepLinkRouter.pendingDeepLink = .profile(uid: uid, username: username)
+                }
+            default:
+                break
+            }
         }
         completionHandler()
     }

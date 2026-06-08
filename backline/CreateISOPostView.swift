@@ -36,7 +36,6 @@ struct CreateISOPostView: View {
 
     private var formIsValid: Bool {
         !roleNeeded.trimmingCharacters(in: .whitespaces).isEmpty
-        && !budget.trimmingCharacters(in: .whitespaces).isEmpty
         && !description.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
@@ -67,12 +66,7 @@ struct CreateISOPostView: View {
                 }
 
                 Section {
-                    HStack {
-                        Text("$")
-                            .foregroundStyle(.secondary)
-                        TextField("Budget (e.g. 200)", text: $budget)
-                            .keyboardType(.numberPad)
-                    }
+                    TextField("Compensation (e.g. $200, 15%, etc.)", text: $budget)
 
                     TextField("Description — what are you looking for?", text: $description, axis: .vertical)
                         .lineLimit(4...10)
@@ -147,13 +141,15 @@ struct CreateISOPostView: View {
 
         let trimmedLocation = location.trimmingCharacters(in: .whitespaces)
 
+        let trimmedBudget = budget.trimmingCharacters(in: .whitespaces)
+
         await listingManager.createISOPost(
             category: category,
             roleNeeded: roleNeeded.trimmingCharacters(in: .whitespaces),
             location: trimmedLocation.isEmpty ? nil : trimmedLocation,
             timeframe: timeframeOption == .specificDate ? timeframe : nil,
             isOngoing: timeframeOption == .ongoing,
-            budget: "$\(budget.trimmingCharacters(in: .whitespaces))",
+            budget: trimmedBudget.isEmpty ? nil : trimmedBudget,
             description: description.trimmingCharacters(in: .whitespaces),
             posterUID: uid,
             posterUsername: username

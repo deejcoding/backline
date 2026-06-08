@@ -14,6 +14,11 @@ struct ProfileDestination: Hashable {
     let username: String
 }
 
+enum ProfileSubpage: Hashable {
+    case connections
+    case connectionRequests
+}
+
 // MARK: - Category
 
 enum ListingCategory: String, CaseIterable, Codable {
@@ -41,6 +46,7 @@ enum ListingCondition: String, CaseIterable, Codable {
 
 enum ServiceCategory: String, CaseIterable, Codable {
     case giggingMusician = "Gigging Musician"
+    case bandForHire = "Band for Hire"
     case repair = "Repair"
     case production = "Production"
     case design = "Design"
@@ -56,6 +62,7 @@ enum ISOCategory: String, CaseIterable, Codable {
     case production = "Production"
     case repair = "Repair"
     case lessons = "Lessons"
+    case practiceSpace = "Practice Space"
 }
 
 // MARK: - ISO Post
@@ -67,7 +74,7 @@ struct ISOPost: Identifiable, Codable, Hashable {
     var location: String?
     var timeframe: Date?
     var isOngoing: Bool?
-    var budget: String
+    var budget: String?
     var description: String
     var posterUID: String
     var posterUsername: String

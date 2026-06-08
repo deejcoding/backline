@@ -33,6 +33,8 @@ struct MainTabView: View {
     @State private var gigsPath = NavigationPath()
     @State private var marketPath = NavigationPath()
     @State private var profilePath = NavigationPath()
+    @State private var gigsSelectedSegment = 0
+    @State private var marketSelectedSegment: MarketplaceSegment = .goods
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -56,9 +58,9 @@ struct MainTabView: View {
                 // Content area
                 Group {
                 switch selectedTab {
-                case 0: HomeView(selectedTab: $selectedTab, navigationPath: $homePath)
-                case 1: GigsView(navigationPath: $gigsPath)
-                case 3: MarketplaceView(navigationPath: $marketPath)
+                case 0: HomeView(selectedTab: $selectedTab, navigationPath: $homePath, gigsSelectedSegment: $gigsSelectedSegment, marketSelectedSegment: $marketSelectedSegment)
+                case 1: GigsView(navigationPath: $gigsPath, selectedSegment: $gigsSelectedSegment)
+                case 3: MarketplaceView(navigationPath: $marketPath, selectedSegment: $marketSelectedSegment)
                 case 4:
                     if authManager.isGuestMode {
                         guestProfilePlaceholder
@@ -71,52 +73,13 @@ struct MainTabView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .animation(.easeInOut(duration: 0.3), value: networkMonitor.isConnected)
-
-            // Custom tab bar (hidden when keyboard is up)
-            if !keyboardVisible {
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(Color.white.opacity(0.10))
-                    .frame(height: 1)
-
-                HStack(spacing: 0) {
-                    tabButton(icon: "house", label: "Home", tag: 0)
-                    tabButton(icon: "person.2", label: "Gigs", tag: 1)
-
-                    // Center post button — square with border
-                    Button {
-                        if authManager.isGuestMode {
-                            showGuestPrompt = true
-                        } else {
-                            withAnimation(.easeOut(duration: 0.15)) {
-                                showCreateMenu = true
-                            }
-                        }
-                    } label: {
-                        Text("＋")
-                            .font(.system(size: 22, weight: .light))
-                            .frame(width: 40, height: 40)
-                            .overlay(
-                                Rectangle()
-                                    .stroke(.white, lineWidth: 1.5)
-                            )
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .accessibilityLabel("Create new post")
-
-                    tabButton(icon: "guitars", label: "Market", tag: 3)
-                    tabButton(
-                        icon: "person",
-                        label: "Profile",
-                        tag: 4,
-                        badge: authManager.isGuestMode ? 0 : messagesManager.unreadCount(forUID: authManager.currentUser?.uid ?? "")
-                    )
+            .safeAreaInset(edge: .bottom) {
+                if !keyboardVisible {
+                    customTabBar
+                } else {
+                    Color.clear.frame(height: 0)
                 }
-                .padding(.bottom, 22)
             }
-            .background(Color(hex: 0x0A0A0A))
-            } // end if !keyboardVisible
 
             // Popup menu
             if showCreateMenu && !keyboardVisible {
@@ -204,6 +167,53 @@ struct MainTabView: View {
         .sheet(isPresented: $showGuestPrompt) {
             GuestPromptView()
         }
+    }
+
+    // MARK: - Custom Tab Bar
+
+    private var customTabBar: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.white.opacity(0.10))
+                .frame(height: 1)
+
+            HStack(spacing: 0) {
+                tabButton(icon: "house", label: "Home", tag: 0)
+                tabButton(icon: "person.2", label: "Gigs", tag: 1)
+
+                // Center post button — square with border
+                Button {
+                    if authManager.isGuestMode {
+                        showGuestPrompt = true
+                    } else {
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            showCreateMenu = true
+                        }
+                    }
+                } label: {
+                    Text("＋")
+                        .font(.system(size: 22, weight: .light))
+                        .frame(width: 40, height: 40)
+                        .overlay(
+                            Rectangle()
+                                .stroke(.white, lineWidth: 1.5)
+                        )
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .accessibilityLabel("Create new post")
+
+                tabButton(icon: "guitars", label: "Market", tag: 3)
+                tabButton(
+                    icon: "person",
+                    label: "Profile",
+                    tag: 4,
+                    badge: authManager.isGuestMode ? 0 : messagesManager.unreadCount(forUID: authManager.currentUser?.uid ?? "")
+                )
+            }
+            .padding(.bottom, 22)
+        }
+        .background(Color(hex: 0x0A0A0A))
     }
 
     // MARK: - Guest Profile Placeholder

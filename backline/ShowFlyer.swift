@@ -15,6 +15,7 @@ struct ShowFlyer: Identifiable, Codable, Hashable {
     var posterUsername: String
     var createdAt: Date
     var ticketURL: String?
+    var lookingForSupport: Bool?
 
     var isExpired: Bool {
         if let eventDate {

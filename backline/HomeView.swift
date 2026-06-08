@@ -12,6 +12,8 @@ struct HomeView: View {
 
     @Binding var selectedTab: Int
     @Binding var navigationPath: NavigationPath
+    @Binding var gigsSelectedSegment: Int
+    @Binding var marketSelectedSegment: MarketplaceSegment
 
     @Environment(AuthenticationManager.self) private var authManager
     @Environment(ListingManager.self) private var listingManager
@@ -25,25 +27,83 @@ struct HomeView: View {
 
     // Synonym groups: each array contains terms that should match each other
     private static let roleSynonyms: [[String]] = [
-        ["drums", "drummer", "percussionist", "percussion"],
+        ["drums", "drummer", "percussion", "percussionist"],
         ["guitar", "guitarist"],
         ["bass", "bassist", "bass player"],
         ["vocals", "vocalist", "singer"],
-        ["keyboardist", "keyboard", "keys", "pianist", "piano"],
+        ["keyboard", "keyboardist", "keys", "piano", "pianist"],
         ["synth", "synthesizer", "synth player"],
-        ["producing", "producer", "music producer"],
-        ["dj", "disc jockey"],
+
+        ["music producer", "producer", "producing"],
+        ["beat maker", "beatmaker", "beat producer"],
+        ["dj", "disc jockey", "vinyl"],
+
         ["rapper", "mc", "emcee"],
-        ["mixing engineer", "mixer", "mix engineer"],
+
+        ["songwriter", "songwriting", "composer", "lyricist", "lyrics"],
+        ["vocal arrangement", "vocal arranger"],
+        ["vocal producer"],
+
+        ["mixing engineer", "mix engineer", "mixer"],
         ["mastering engineer", "mastering"],
         ["recording engineer", "recording"],
-        ["live sound engineering", "live sound", "sound engineer", "sound tech", "audio engineer"],
-        ["graphic design", "graphic designer", "designer"],
+        ["live sound engineer", "live sound", "foh engineer", "front of house", "sound engineer", "audio engineer"],
+        ["monitor engineer"],
+        ["audio technician", "sound tech", "sound designer"],
+
+        ["audio editor"],
+        ["midi programmer"],
+
+        ["graphic design", "graphic designer", "graphic"],
         ["videography", "videographer", "video"],
-        ["photography", "photographer"],
-        ["managing", "manager", "band manager"],
-        ["songwriting", "songwriter"],
-        ["beat maker", "beatmaker", "beat producer"],
+        ["photography", "photographer", "photo"],
+        ["music video director", "video director", "director"],
+
+        ["artist manager", "manager", "band manager", "managing", "management"],
+        ["booking agent", "booker", "booking"],
+        ["promoter", "concert promoter"],
+        ["talent buyer"],
+        ["venue manager", "venue"],
+        ["venue owner"],
+
+        ["tour manager", "tour managing", "tour"],
+        ["stage manager"],
+        ["production manager"],
+
+        ["publicist", "pr", "public relations"],
+        ["a&r", "artists and repertoire"],
+        ["label owner", "record label"],
+
+        ["music publishing", "publisher"],
+        ["distribution", "distributor"],
+        ["music attorney", "entertainment lawyer"],
+
+        ["lighting designer", "lighting operator", "lighting", "lights"],
+
+        ["violin", "violinist", "fiddle", "strings", "string"],
+        ["cello", "cellist", "strings", "string"],
+        ["viola", "string", "strings"],
+        ["upright bass", "double bass", "standup bass", "strings", "string"],
+
+        ["saxophone", "sax", "sax player", "horn"],
+        ["flute", "flutist", "flautist", "woodwind"],
+        ["trumpet", "trumpeter", "horn"],
+        ["trombone", "trombonist", "horn"],
+        ["clarinet", "woodwind"],
+        ["oboe", "oboist", "woodwind"],
+
+        ["harp", "harpist"],
+        ["accordion", "accordionist"],
+        ["banjo", "banjoist"],
+        ["mandolin", "mandolinist"],
+        ["ukulele"],
+
+        ["steel guitar", "pedal steel", "lap steel"],
+
+        ["experimental musician", "experimental"],
+        ["noise artist", "noise"],
+
+        ["vocal coach", "voice coach", "voice teacher"]
     ]
 
     /// Returns true if a user's role and a post's roleNeeded are semantically related.
@@ -71,22 +131,27 @@ struct HomeView: View {
         let nonBlocked = listingManager.isoPosts
             .filter { !blocked.contains($0.posterUID) }
             .sorted { $0.createdAt > $1.createdAt }
-        let base: [ISOPost]
-        if userRoles.isEmpty {
-            base = Array(nonBlocked.prefix(10))
-        } else {
+
+        guard !searchText.isEmpty else {
+            // No search — show role-matched or most recent
+            if userRoles.isEmpty {
+                return Array(nonBlocked.prefix(10))
+            }
             let matched = nonBlocked.filter { post in
                 userRoles.contains { role in roleMatches(userRole: role, postRole: post.roleNeeded) }
             }
-            base = matched.isEmpty ? Array(nonBlocked.prefix(10)) : matched
+            return matched.isEmpty ? Array(nonBlocked.prefix(10)) : matched
         }
-        guard !searchText.isEmpty else { return base }
+
+        // Searching — filter ALL non-blocked posts
         let query = searchText.lowercased()
-        return base.filter {
+        return nonBlocked.filter {
             $0.roleNeeded.lowercased().contains(query)
             || $0.posterUsername.lowercased().contains(query)
-            || $0.budget.lowercased().contains(query)
+            || ($0.budget?.lowercased().contains(query) ?? false)
             || $0.description.lowercased().contains(query)
+            || $0.category.rawValue.lowercased().contains(query)
+            || ($0.location?.lowercased().contains(query) ?? false)
         }
     }
 
@@ -132,39 +197,66 @@ struct HomeView: View {
             .sorted { $0.1 > $1.1 }
             .map(\.0)
 
-        let base = Array(sorted.prefix(20))
-        guard !searchText.isEmpty else { return base }
+        guard !searchText.isEmpty else { return Array(sorted.prefix(20)) }
+
+        // When searching, search ALL users (not just top 20)
         let query = searchText.lowercased()
-        return base.filter {
+        let filtered = sorted.filter {
             $0.username.lowercased().contains(query)
-            || $0.roles.contains { $0.lowercased().contains(query) }
+            || $0.roles.contains { roleMatches(userRole: $0.lowercased(), postRole: query) }
             || $0.genres.contains { $0.lowercased().contains(query) }
         }
+
+        // Prioritize users whose roles match the query
+        let roleMatched = filtered.filter { user in
+            user.roles.contains { roleMatches(userRole: $0.lowercased(), postRole: query) }
+        }
+        let nonRoleMatched = filtered.filter { user in
+            !user.roles.contains { roleMatches(userRole: $0.lowercased(), postRole: query) }
+        }
+
+        return Array((roleMatched + nonRoleMatched).prefix(40))
     }
 
     // Recent listings
     private var recentListings: [Listing] {
         let blocked = Set(authManager.blockedUsers)
-        let base = Array(listingManager.listings.filter { !blocked.contains($0.sellerUID) }.prefix(10))
-        guard !searchText.isEmpty else { return base }
+        let all = listingManager.listings.filter { !blocked.contains($0.sellerUID) }
+        guard !searchText.isEmpty else { return Array(all.prefix(10)) }
         let query = searchText.lowercased()
-        return base.filter {
+        return all.filter {
             $0.title.lowercased().contains(query)
+            || $0.description.lowercased().contains(query)
             || $0.location.lowercased().contains(query)
             || $0.condition.rawValue.lowercased().contains(query)
+            || $0.sellerUsername.lowercased().contains(query)
+        }
+    }
+
+    // Recent services
+    private var recentServices: [ServiceListing] {
+        let blocked = Set(authManager.blockedUsers)
+        let all = listingManager.serviceListings.filter { !blocked.contains($0.sellerUID) }
+        guard !searchText.isEmpty else { return Array(all.prefix(10)) }
+        let query = searchText.lowercased()
+        return all.filter {
+            $0.title.lowercased().contains(query)
+            || $0.description.lowercased().contains(query)
+            || $0.category.rawValue.lowercased().contains(query)
+            || $0.sellerUsername.lowercased().contains(query)
         }
     }
 
     // Upcoming shows
     private var upcomingShows: [ShowFlyer] {
         let blocked = Set(authManager.blockedUsers)
-        let base = listingManager.showFlyers
+        let all = listingManager.showFlyers
             .filter { !$0.isExpired && !blocked.contains($0.posterUID) }
             .sorted { ($0.eventDate ?? Date()) < ($1.eventDate ?? Date()) }
 
-        guard !searchText.isEmpty else { return Array(base.prefix(10)) }
+        guard !searchText.isEmpty else { return Array(all.prefix(10)) }
         let query = searchText.lowercased()
-        return base.filter {
+        return all.filter {
             $0.title.lowercased().contains(query)
             || ($0.venue?.lowercased().contains(query) ?? false)
             || $0.posterUsername.lowercased().contains(query)
@@ -202,20 +294,61 @@ struct HomeView: View {
                             .background(ThemeColor.red.opacity(0.85))
                     }
 
-                    // Greeting
-                    greetingSection
+                    let isSearching = !searchText.isEmpty
+
+                    // Greeting (hide while searching)
+                    if !isSearching {
+                        greetingSection
+                    }
 
                     // MARK: - Top Gigs
-                    topGigsSection
+                    if !matchedGigs.isEmpty {
+                        topGigsSection
+                    }
 
                     // MARK: - Discover Artists
-                    discoverSection
+                    if !isSearching || !discoverUsers.isEmpty {
+                        discoverSection
+                    }
 
                     // MARK: - Upcoming Shows
-                    upcomingShowsSection
+                    if !isSearching || !upcomingShows.isEmpty {
+                        upcomingShowsSection
+                    }
 
                     // MARK: - Recent Listings
-                    recentListingsSection
+                    if !isSearching || !recentListings.isEmpty {
+                        recentListingsSection
+                    }
+
+                    // MARK: - Services
+                    if !isSearching || !recentServices.isEmpty {
+                        recentServicesSection
+                    }
+
+                    // Feedback (hide while searching)
+                    if !isSearching {
+                        feedbackButton
+                    }
+
+                    // No results message
+                    if isSearching
+                        && matchedGigs.isEmpty
+                        && discoverUsers.isEmpty
+                        && upcomingShows.isEmpty
+                        && recentListings.isEmpty
+                        && recentServices.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.title2)
+                                .foregroundStyle(.tertiary)
+                            Text("No results for \"\(searchText)\"")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                    }
 
                     Spacer().frame(height: 100)
                 }
@@ -283,7 +416,8 @@ struct HomeView: View {
                 async let users: () = listingManager.fetchAllUsers()
                 async let items: () = listingManager.fetchListings()
                 async let flyers: () = listingManager.fetchShowFlyers()
-                _ = await (iso, users, items, flyers)
+                async let services: () = listingManager.fetchServiceListings()
+                _ = await (iso, users, items, flyers, services)
 
                 // Precompute mutual connection counts for discover sorting (skip for guests)
                 if !authManager.isGuestMode, let uid = authManager.currentUser?.uid {
@@ -299,7 +433,8 @@ struct HomeView: View {
                 async let users: () = listingManager.fetchAllUsers()
                 async let items: () = listingManager.fetchListings()
                 async let flyers: () = listingManager.fetchShowFlyers()
-                _ = await (iso, users, items, flyers)
+                async let services: () = listingManager.fetchServiceListings()
+                _ = await (iso, users, items, flyers, services)
             }
         }
     }
@@ -324,14 +459,16 @@ struct HomeView: View {
                     .font(.system(size: 26, weight: .bold))
                     .tracking(-0.5)
 
-                HStack(spacing: 0) {
-                    Text("\(strictMatchCount) gigs")
-                        .font(.system(size: 14))
-                        .foregroundStyle(ThemeColor.green)
-                        .fontWeight(.bold)
-                    Text(" match your skills today.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.65))
+                if strictMatchCount > 0 {
+                    HStack(spacing: 0) {
+                        Text("\(strictMatchCount) gigs")
+                            .font(.system(size: 14))
+                            .foregroundStyle(ThemeColor.green)
+                            .fontWeight(.bold)
+                        Text(" match your skills today.")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.white.opacity(0.65))
+                    }
                 }
             }
         }
@@ -344,7 +481,7 @@ struct HomeView: View {
 
     private var topGigsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            BroadcastSectionHeader(label: "Top gigs for you", trailing: "See all") { selectedTab = 1 }
+            BroadcastSectionHeader(label: "Top gigs for you", trailing: "See all") { gigsSelectedSegment = 0; selectedTab = 1 }
 
             if matchedGigs.isEmpty {
                 VStack(spacing: 6) {
@@ -430,10 +567,12 @@ struct HomeView: View {
 
                 // Meta: budget · genres
                 HStack(spacing: 6) {
-                    Text(post.budget)
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundStyle(ThemeColor.green)
-                        .tracking(-0.1)
+                    if let budget = post.budget, !budget.isEmpty {
+                        Text(budget)
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundStyle(ThemeColor.green)
+                            .tracking(-0.1)
+                    }
 
                     if let genres = posterGenres(for: post.posterUID), !genres.isEmpty {
                         Text("·")
@@ -473,7 +612,7 @@ struct HomeView: View {
 
     private var discoverSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            BroadcastSectionHeader(label: "Artists near you", trailing: "See all") { selectedTab = 1 }
+            BroadcastSectionHeader(label: "Artists near you", trailing: "See all") { gigsSelectedSegment = 1; selectedTab = 1 }
 
             if discoverUsers.isEmpty {
                 VStack(spacing: 6) {
@@ -545,7 +684,7 @@ struct HomeView: View {
 
     private var upcomingShowsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            BroadcastSectionHeader(label: "Upcoming shows", trailing: "See all") { selectedTab = 1 }
+            BroadcastSectionHeader(label: "Upcoming shows", trailing: "See all") { gigsSelectedSegment = 2; selectedTab = 1 }
 
             if upcomingShows.isEmpty {
                 VStack(spacing: 6) {
@@ -615,6 +754,16 @@ struct HomeView: View {
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(ThemeColor.yellow)
                     .lineLimit(1)
+            }
+
+            if flyer.lookingForSupport == true {
+                Text("NEEDS SUPPORT")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .tracking(0.3)
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(ThemeColor.cyan)
             }
         }
         .frame(width: 96, alignment: .topLeading)
@@ -711,5 +860,91 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Recent Services Section
+
+    private var recentServicesSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            BroadcastSectionHeader(label: "Services", trailing: "See all") { marketSelectedSegment = .services; selectedTab = 3 }
+
+            if recentServices.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "wrench.and.screwdriver")
+                        .font(.title3)
+                        .foregroundStyle(.tertiary)
+                    Text("No services yet")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(recentServices) { service in
+                            NavigationLink(value: service) {
+                                serviceCard(service)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
+    private func serviceCard(_ service: ServiceListing) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(service.title)
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(service.category.rawValue)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(ThemeColor.cyan)
+                .lineLimit(1)
+
+            Text(service.rate)
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundStyle(ThemeColor.green)
+                .lineLimit(1)
+
+            Text("@\(service.sellerUsername)")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.55))
+                .lineLimit(1)
+        }
+        .frame(width: 150, alignment: .topLeading)
+        .padding(12)
+        .overlay(
+            Rectangle()
+                .stroke(ThemeColor.hairline, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Feedback Button
+
+    private var feedbackButton: some View {
+        Button {
+            if let url = URL(string: "mailto:hello@backlinenyc.com?subject=Backline%20App%20Feedback") {
+                UIApplication.shared.open(url)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "envelope")
+                    .font(.system(size: 12))
+                Text("GIVE FEEDBACK")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .tracking(0.5)
+            }
+            .foregroundStyle(.white.opacity(0.4))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 24)
     }
 }

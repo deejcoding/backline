@@ -158,10 +158,6 @@ struct ChatView: View {
     private func sendMessage() async {
         guard let uid = authManager.currentUser?.uid else { return }
 
-        if ContactInfoFilter.containsContactInfo(messageText) {
-            contactInfoWarning = "Please don't share phone numbers or email addresses. Use in-app messaging to stay connected."
-            return
-        }
         if ProfanityFilter.containsProfanity(messageText) {
             contactInfoWarning = "Your message contains inappropriate language. Please revise and try again."
             return

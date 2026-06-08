@@ -12,7 +12,7 @@ struct OnboardingView: View {
 
     @Environment(AuthenticationManager.self) private var authManager
 
-    @State private var step = 0 // 0 = location, 1 = roles, 2 = genres, 3 = photo, 4 = bio
+    @State private var step = 0 // 0 = location, 1 = roles, 2 = neighborhood, 3 = genres, 4 = photo, 5 = bio
     @State private var locationDenied = false
 
     var body: some View {
@@ -27,10 +27,12 @@ struct OnboardingView: View {
             case 1:
                 OnboardingRolesStep(onContinue: { BLAnalytics.onboardingStep(1); step = 2 })
             case 2:
-                OnboardingGenresStep(onContinue: { BLAnalytics.onboardingStep(2); step = 3 })
+                OnboardingNeighborhoodStep(onContinue: { BLAnalytics.onboardingStep(2); step = 3 })
             case 3:
-                OnboardingPhotoStep(onContinue: { BLAnalytics.onboardingStep(3); step = 4 })
+                OnboardingGenresStep(onContinue: { BLAnalytics.onboardingStep(3); step = 4 })
             case 4:
+                OnboardingPhotoStep(onContinue: { BLAnalytics.onboardingStep(4); step = 5 })
+            case 5:
                 OnboardingBioStep(onComplete: {
                     BLAnalytics.onboardingComplete()
                     Task { await authManager.completeOnboarding() }
@@ -105,6 +107,70 @@ private struct OnboardingLocationStep: View {
     }
 }
 
+// MARK: - Neighborhood Step (Optional)
+
+private struct OnboardingNeighborhoodStep: View {
+
+    @Environment(AuthenticationManager.self) private var authManager
+
+    let onContinue: () -> Void
+
+    @State private var selectedNeighborhood = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Button("Do this later") {
+                    onContinue()
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+
+            ScrollView {
+                VStack(spacing: 20) {
+                    Spacer()
+                        .frame(height: 16)
+
+                    Text("What neighborhood are you in?")
+                        .font(.title3)
+                        .fontWeight(.bold)
+
+                    Text("This helps other musicians find people near them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    NeighborhoodPickerView(selectedNeighborhood: $selectedNeighborhood)
+                        .padding(.horizontal)
+
+                    Button {
+                        Task {
+                            if !selectedNeighborhood.isEmpty {
+                                await authManager.updateNeighborhood(selectedNeighborhood)
+                            }
+                            onContinue()
+                        }
+                    } label: {
+                        Text("Continue")
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(.white)
+                            .foregroundStyle(.black)
+                            .clipShape(Rectangle())
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 40)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Roles Step (Optional)
 
 private struct OnboardingRolesStep: View {
@@ -113,15 +179,57 @@ private struct OnboardingRolesStep: View {
 
     let onContinue: () -> Void
 
-    static let allRoles = [
-        "Guitar", "Vocals", "Keyboardist", "Synth", "Woodwinds",
-        "Strings", "Brass", "Bass", "Drums", "Producing",
-        "Rapper", "DJ", "Live Sound Engineering", "Mixing Engineer",
-        "Mastering Engineer", "Recording Engineer", "Graphic Design",
-        "Videography", "Managing", "Photography","PR", "Lessons", "Vocal Arrangement", "Beat Maker", "Social Media", "Songwriting"
+    static let roleCategories: [(name: String, roles: [String])] = [
+        ("Instruments", [
+                "Guitar", "Bass", "Drums", "Percussion", "Vocals", "Keyboardist", "Synth",
+                "Saxophone", "Flute", "Trumpet", "Violin", "Harp", "Banjo",
+                "Upright Bass", "Cello", "Mandolin", "Accordion", "Piano",
+                "Clarinet", "Oboe", "Trombone", "Brass", "Ukulele"
+            ]),
+
+            ("Production", [
+                "Producing", "Beat Maker", "DJ", "Rapper", "Electronic Artist",
+                "Noise Artist", "Experimental Musician",
+                "Songwriting", "Lyricist", "Composer", "Topliner",
+                "Vocal Arrangement", "Vocal Producer"
+            ]),
+
+            ("Engineering", [
+                "Live Sound Engineering", "Front of House Engineer",
+                "Monitor Engineer", "Mixing Engineer",
+                "Mastering Engineer", "Recording Engineer",
+                "Audio Technician", "Sound Designer", "Audio Editor",
+                "MIDI Programmer"
+            ]),
+
+            ("Visual & Media", [
+                "Graphic Design", "Videography", "Photography",
+                "Music Video Director", "Lighting", "Lighting Operator",
+                "Motion Graphics", "Animation", "3D Design",
+                "Cover Art", "Visual Branding", "Set Design"
+            ]),
+
+            ("Business & Management", [
+                "Managing", "Artist Management", "Tour Managing",
+                "Booking", "Show Booker", "Booking Agent", "Talent Buyer",
+                "Promoter", "Venue Manager", "Venue Owner",
+                "Publicist", "PR", "A&R",
+                "Music Attorney", "Label Owner",
+                "Music Publishing", "Distribution",
+                "DIY Organizer"
+            ]),
+
+            ("Services & Education", [
+                "Lessons", "Music Teacher", "Vocal Coach",
+                "Rehearsal Space", "Studio Rental",
+                "Instrument Repair", "Amp Repair",
+                "Choir Director", "Conductor",
+                "Session Work"
+            ]),
     ]
 
     @State private var selectedRoles: [String] = []
+    @State private var expandedCategories: Set<String> = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -149,26 +257,68 @@ private struct OnboardingRolesStep: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    FlowLayout(spacing: 8) {
-                        ForEach(Self.allRoles, id: \.self) { role in
-                            let isSelected = selectedRoles.contains(role)
-                            Button {
-                                if isSelected {
-                                    selectedRoles.removeAll { $0 == role }
-                                } else {
-                                    selectedRoles.append(role)
+                    VStack(spacing: 0) {
+                        ForEach(Self.roleCategories, id: \.name) { category in
+                            let selectedCount = category.roles.filter { selectedRoles.contains($0) }.count
+                            VStack(spacing: 0) {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        if expandedCategories.contains(category.name) {
+                                            expandedCategories.remove(category.name)
+                                        } else {
+                                            expandedCategories.insert(category.name)
+                                        }
+                                    }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(.white.opacity(0.4))
+                                            .rotationEffect(.degrees(expandedCategories.contains(category.name) ? 90 : 0))
+                                        Text(category.name)
+                                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                            .foregroundStyle(.white)
+                                        Spacer()
+                                        if selectedCount > 0 {
+                                            Text("\(selectedCount)")
+                                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                                .foregroundStyle(.black)
+                                                .padding(.horizontal, 7)
+                                                .padding(.vertical, 2)
+                                                .background(ThemeColor.yellow)
+                                        }
+                                    }
+                                    .padding(.vertical, 10)
                                 }
-                            } label: {
-                                Text(role)
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(isSelected ? ThemeColor.yellow : Color.clear)
-                                    .foregroundStyle(isSelected ? .black : .white)
-                                    .overlay(
-                                        Rectangle()
-                                            .stroke(isSelected ? Color.clear : .white.opacity(0.5), lineWidth: 1)
-                                    )
+                                .buttonStyle(.plain)
+
+                                if expandedCategories.contains(category.name) {
+                                    FlowLayout(spacing: 8) {
+                                        ForEach(category.roles, id: \.self) { role in
+                                            let isSelected = selectedRoles.contains(role)
+                                            Button {
+                                                if isSelected {
+                                                    selectedRoles.removeAll { $0 == role }
+                                                } else {
+                                                    selectedRoles.append(role)
+                                                }
+                                            } label: {
+                                                Text(role)
+                                                    .font(.system(size: 12, design: .monospaced))
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 6)
+                                                    .background(isSelected ? ThemeColor.yellow : Color.clear)
+                                                    .foregroundStyle(isSelected ? .black : .white)
+                                                    .overlay(
+                                                        Rectangle()
+                                                            .stroke(isSelected ? Color.clear : .white.opacity(0.5), lineWidth: 1)
+                                                    )
+                                            }
+                                        }
+                                    }
+                                    .padding(.bottom, 8)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
                             }
                         }
                     }
@@ -240,6 +390,21 @@ private struct OnboardingGenresStep: View {
                             .autocorrectionDisabled()
                             .font(.system(size: 12, design: .monospaced))
                             .onSubmit { addGenre() }
+                            .onChange(of: newGenre) { _, newValue in
+                                if newValue.contains(",") {
+                                    let parts = newValue.split(separator: ",", omittingEmptySubsequences: true)
+                                    for part in parts {
+                                        let trimmed = part.trimmingCharacters(in: .whitespaces)
+                                            .lowercased()
+                                            .replacingOccurrences(of: "#", with: "")
+                                            .replacingOccurrences(of: " ", with: "")
+                                        if !trimmed.isEmpty, !genres.contains(trimmed) {
+                                            genres.append(trimmed)
+                                        }
+                                    }
+                                    newGenre = ""
+                                }
+                            }
 
                         Button {
                             addGenre()
