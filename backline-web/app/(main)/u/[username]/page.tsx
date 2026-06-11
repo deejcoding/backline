@@ -54,15 +54,15 @@ export default function PublicProfilePage() {
         <div className="md:col-span-1">
           {/* Photo & Basic Info */}
           <div className="text-center mb-4">
-            <div className="w-24 h-24 mx-auto bg-white/5 overflow-hidden mb-3">
+            <div className="w-24 h-24 mx-auto rounded-full bg-white/5 overflow-hidden mb-3 border border-white/10">
               {profile.profilePhotoURL ? (
                 <img src={profile.profilePhotoURL} alt="" className="w-full h-full object-cover" loading="lazy" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-3xl text-white/20">👤</div>
               )}
             </div>
-            {profile.displayName && <h1 className="text-lg font-bold">{profile.displayName}</h1>}
-            <p className="font-mono text-sm text-white/60">@{profile.username}</p>
+            {profile.displayName && <h1 className="text-xl font-bold mb-1">{profile.displayName}</h1>}
+            <p className="font-mono text-sm text-white/50">@{profile.username}</p>
           </div>
 
           {/* Meta */}
@@ -86,19 +86,19 @@ export default function PublicProfilePage() {
 
           {/* Roles & Genres */}
           {profile.roles && profile.roles.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-1 mb-2">
+            <div className="flex flex-wrap justify-center gap-1.5 mb-3">
               {profile.roles.map((role) => (
-                <span key={role} className="px-2 py-0.5 font-mono text-[10px] text-signal-yellow border border-signal-yellow/30">
+                <span key={role} className="px-2 py-1 font-mono text-[10px] text-signal-yellow bg-signal-yellow/10 border border-signal-yellow/20">
                   {role}
                 </span>
               ))}
             </div>
           )}
           {profile.genres && profile.genres.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-1 mb-4">
+            <div className="flex flex-wrap justify-center gap-1.5 mb-4">
               {profile.genres.map((genre) => (
-                <span key={genre} className="px-2 py-0.5 font-mono text-[10px] text-accent border border-accent/30">
-                  #{genre}
+                <span key={genre} className="px-2 py-1 font-mono text-[10px] text-accent bg-accent/10 border border-accent/20">
+                  {genre}
                 </span>
               ))}
             </div>
@@ -122,26 +122,26 @@ export default function PublicProfilePage() {
           {/* Portfolio */}
           {profile.musicProjects && profile.musicProjects.length > 0 && (
             <section>
-              <h2 className="font-semibold text-sm mb-3">Portfolio</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <h2 className="font-semibold text-sm mb-3 text-white/70 uppercase tracking-wider">Portfolio</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {profile.musicProjects.map((project) => (
                   <a
                     key={project.id}
                     href={project.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 border border-white/10 hover:border-white/20 transition-colors"
+                    className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 hover:border-accent/50 hover:bg-white/[0.07] transition-all"
                   >
                     {project.thumbnailURL ? (
-                      <img src={project.thumbnailURL} alt="" className="w-10 h-10 object-cover" />
+                      <img src={project.thumbnailURL} alt="" className="w-12 h-12 object-cover rounded" loading="lazy" />
                     ) : (
-                      <div className="w-10 h-10 bg-white/5 flex items-center justify-center text-white/30">🎵</div>
+                      <div className="w-12 h-12 bg-white/10 flex items-center justify-center text-white/30 rounded">🎵</div>
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{project.title}</p>
                       <p className="font-mono text-[10px] text-white/50 capitalize">{project.platform}</p>
                     </div>
-                    <ExternalLink size={12} className="text-white/30" />
+                    <ExternalLink size={14} className="text-white/30 flex-shrink-0" />
                   </a>
                 ))}
               </div>
@@ -151,24 +151,26 @@ export default function PublicProfilePage() {
           {/* Featured */}
           {profile.featuredProjects && profile.featuredProjects.length > 0 && (
             <section>
-              <h2 className="font-semibold text-sm mb-3">Featured</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <h2 className="font-semibold text-sm mb-3 text-white/70 uppercase tracking-wider">Featured</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {profile.featuredProjects.map((project) => (
                   <a
                     key={project.id}
                     href={project.externalURL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 border border-white/10 hover:border-white/20 transition-colors"
+                    className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 hover:border-accent/50 hover:bg-white/[0.07] transition-all"
                   >
-                    {project.albumImageURL && (
-                      <img src={project.albumImageURL} alt="" className="w-10 h-10 object-cover" />
+                    {project.albumImageURL ? (
+                      <img src={project.albumImageURL} alt="" className="w-12 h-12 object-cover rounded" loading="lazy" />
+                    ) : (
+                      <div className="w-12 h-12 bg-white/10 flex items-center justify-center text-white/30 rounded">🎵</div>
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{project.name}</p>
                       <p className="font-mono text-[10px] text-white/50 truncate">{project.artistName}</p>
                     </div>
-                    <ExternalLink size={12} className="text-white/30" />
+                    <ExternalLink size={14} className="text-white/30 flex-shrink-0" />
                   </a>
                 ))}
               </div>
@@ -177,8 +179,8 @@ export default function PublicProfilePage() {
 
           {/* Empty state */}
           {(!profile.musicProjects || profile.musicProjects.length === 0) && (!profile.featuredProjects || profile.featuredProjects.length === 0) && (
-            <div className="text-center py-12 text-white/40">
-              <p className="text-sm">No portfolio items yet</p>
+            <div className="text-center py-12 border border-dashed border-white/10 rounded">
+              <p className="text-sm text-white/40">No portfolio items yet</p>
             </div>
           )}
         </div>

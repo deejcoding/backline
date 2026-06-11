@@ -89,6 +89,7 @@ export default function MarketPage() {
                     src={listing.photoURLs[0]}
                     alt=""
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white/20">

@@ -160,9 +160,9 @@ export default function GigsPage() {
                   href={`/u/${artist.username}`}
                   className="p-3 border border-white/10 hover:border-white/20 transition-colors text-center"
                 >
-                  <div className="w-16 h-16 mx-auto mb-2 bg-white/5 overflow-hidden rounded-full">
+                  <div className="w-16 h-16 mx-auto mb-2 bg-white/5 overflow-hidden rounded-full border border-white/10">
                     {artist.profilePhotoURL ? (
-                      <img src={artist.profilePhotoURL} alt="" className="w-full h-full object-cover" />
+                      <img src={artist.profilePhotoURL} alt="" className="w-full h-full object-cover" loading="lazy" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-white/20 text-2xl">👤</div>
                     )}
@@ -227,6 +227,7 @@ export default function GigsPage() {
                         src={flyer.imageURL}
                         alt=""
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        loading="lazy"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-white/20">

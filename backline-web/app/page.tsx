@@ -116,6 +116,7 @@ export default function HomePage() {
                             src={listing.photoURLs[0]}
                             alt=""
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            loading="lazy"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-white/20">
@@ -156,7 +157,7 @@ export default function HomePage() {
                     >
                       <div className="w-12 h-12 bg-white/5 flex-shrink-0 overflow-hidden">
                         {flyer.imageURL ? (
-                          <img src={flyer.imageURL} alt="" className="w-full h-full object-cover" />
+                          <img src={flyer.imageURL} alt="" className="w-full h-full object-cover" loading="lazy" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">
                             📅
@@ -191,12 +192,13 @@ export default function HomePage() {
                       href={`/u/${artist.username}`}
                       className="text-center group"
                     >
-                      <div className="w-full aspect-square bg-white/5 overflow-hidden mb-1">
+                      <div className="w-full aspect-square bg-white/5 overflow-hidden mb-1 rounded-full border border-white/10">
                         {artist.profilePhotoURL ? (
                           <img
                             src={artist.profilePhotoURL}
                             alt=""
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            loading="lazy"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-white/20">
