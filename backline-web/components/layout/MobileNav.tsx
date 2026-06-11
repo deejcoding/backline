@@ -2,15 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Users, ShoppingBag, User } from 'lucide-react'
+import { Home, Users, ShoppingBag, Apple } from 'lucide-react'
 import clsx from 'clsx'
-import { useAuthStore } from '@/lib/stores/authStore'
+
+const APP_STORE_URL = 'https://apps.apple.com/app/backline-nyc/id6504419947'
 
 export function MobileNav() {
   const pathname = usePathname()
-  const { user, isGuestMode } = useAuthStore()
-
-  const isAuthenticated = !!user && !isGuestMode
 
   // Don't show on auth pages
   if (pathname.startsWith('/login') || pathname.startsWith('/signup') || pathname.startsWith('/forgot-password') || pathname.startsWith('/onboarding')) {
@@ -45,22 +43,12 @@ export function MobileNav() {
             isActive={pathname.startsWith('/market')}
           />
 
-          {/* Profile / Login */}
-          {isAuthenticated ? (
-            <TabButton
-              href="/profile"
-              icon={User}
-              label="Profile"
-              isActive={pathname.startsWith('/profile') || pathname.startsWith('/u/')}
-            />
-          ) : (
-            <TabButton
-              href="/login"
-              icon={User}
-              label="Login"
-              isActive={pathname === '/login'}
-            />
-          )}
+          {/* Get App */}
+          <ExternalTabButton
+            href={APP_STORE_URL}
+            icon={Apple}
+            label="Get App"
+          />
         </div>
       </div>
     </nav>
@@ -95,5 +83,26 @@ function TabButton({
         </span>
       </div>
     </Link>
+  )
+}
+
+function ExternalTabButton({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string
+  icon: typeof Home
+  label: string
+}) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="flex-1">
+      <div className="flex flex-col items-center gap-1 pt-2.5 pb-6 opacity-45">
+        <Icon size={18} className="text-white" />
+        <span className="font-sans text-[10px] tracking-wide text-white">
+          {label}
+        </span>
+      </div>
+    </a>
   )
 }
