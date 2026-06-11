@@ -18,7 +18,7 @@ export function MobileNav() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A] md:hidden z-40">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A] md:hidden z-40 pb-[env(safe-area-inset-bottom)]">
       <div className="border-t border-white/10">
         <div className="flex items-stretch">
           {/* Home */}

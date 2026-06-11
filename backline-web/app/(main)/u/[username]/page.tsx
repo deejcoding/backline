@@ -8,10 +8,11 @@ import { useAuthStore } from '@/lib/stores/authStore'
 import { Button } from '@/components/ui'
 
 export default function PublicProfilePage() {
-  const { username } = useParams<{ username: string }>()
+  const params = useParams()
+  const username = Array.isArray(params.username) ? params.username[0] : params.username || ''
   const { user, isBlocked } = useAuthStore()
 
-  const { data: profile, isLoading } = useUserByUsername(username)
+  const { data: profile, isLoading } = useUserByUsername(decodeURIComponent(username))
 
   const isOwnProfile = profile && user && profile.id === user.uid
 
@@ -55,7 +56,7 @@ export default function PublicProfilePage() {
           <div className="text-center mb-4">
             <div className="w-24 h-24 mx-auto bg-white/5 overflow-hidden mb-3">
               {profile.profilePhotoURL ? (
-                <img src={profile.profilePhotoURL} alt="" className="w-full h-full object-cover" />
+                <img src={profile.profilePhotoURL} alt="" className="w-full h-full object-cover" loading="lazy" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-3xl text-white/20">👤</div>
               )}

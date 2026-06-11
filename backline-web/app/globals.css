@@ -156,3 +156,37 @@ body {
     padding-bottom: 72px;
   }
 }
+
+/* Mobile touch improvements */
+@media (hover: none) and (pointer: coarse) {
+  /* Touch action for interactive elements */
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Prevent text selection on interactive elements */
+  button,
+  [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/* Prevent horizontal overflow */
+html, body {
+  overflow-x: hidden;
+}
+
+/* Better mobile input styling */
+input, textarea, select {
+  font-size: 16px; /* Prevents zoom on iOS */
+}
+
+/* Safe area for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .has-mobile-nav {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}

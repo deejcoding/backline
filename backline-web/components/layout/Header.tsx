@@ -43,16 +43,16 @@ export function Header() {
               </Link>
             </>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className="font-mono text-[11px] text-white/60 hover:text-white transition-colors uppercase tracking-wider"
+                className="px-3 py-1.5 font-mono text-[11px] text-white/60 hover:text-white transition-colors uppercase tracking-wider"
               >
                 Login
               </Link>
               <Link
                 href="/signup"
-                className="px-4 py-2 bg-accent text-black font-mono text-[11px] font-semibold uppercase tracking-wider hover:opacity-85 transition-opacity"
+                className="px-3 py-1.5 bg-accent text-black font-mono text-[11px] font-semibold uppercase tracking-wider hover:opacity-85 transition-opacity"
               >
                 Sign Up
               </Link>

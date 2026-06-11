@@ -1,8 +1,17 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Providers } from './providers'
 import { Header, MobileNav } from '@/components/layout'
 import { Toast } from '@/components/ui'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#000000',
+}
 
 export const metadata: Metadata = {
   title: 'Backline - NYC Music Community',
@@ -19,6 +28,11 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Backline - NYC Music Community',
     description: 'Connect with musicians, find gigs, and buy/sell gear in NYC.',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Backline',
   },
 }
 

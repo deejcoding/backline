@@ -77,13 +77,13 @@ export default function GigsPage() {
       </Link>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-white/10 mb-4">
+      <div className="flex gap-1 border-b border-white/10 mb-4 overflow-x-auto hide-scrollbar -mx-4 px-4">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={clsx(
-              'px-4 py-2 font-mono text-xs tracking-wider transition-colors relative',
+              'px-4 py-3 font-mono text-xs tracking-wider transition-colors relative whitespace-nowrap flex-shrink-0',
               activeTab === tab.id ? 'text-white font-bold' : 'text-white/45 hover:text-white/70'
             )}
           >

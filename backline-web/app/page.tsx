@@ -183,7 +183,7 @@ export default function HomePage() {
             {/* Artists */}
             {artists.length > 0 && (
               <section>
-                <SectionHeader label="Artists" href="/gigs?tab=services" />
+                <SectionHeader label="Artists" href="/gigs?tab=artists" />
                 <div className="grid grid-cols-3 gap-2">
                   {artists.slice(0, 9).map((artist) => (
                     <Link

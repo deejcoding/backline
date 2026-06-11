@@ -10,7 +10,8 @@ import { Button, Avatar } from '@/components/ui'
 import { formatPrice, timeAgo } from '@/lib/types'
 
 export default function ListingDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const params = useParams()
+  const id = Array.isArray(params.id) ? params.id[0] : params.id || ''
   const { isBlocked } = useAuthStore()
   const { data: listing, isLoading } = useListing(id)
 

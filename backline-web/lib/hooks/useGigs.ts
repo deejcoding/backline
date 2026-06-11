@@ -247,8 +247,10 @@ export function useShowFlyers() {
   return useQuery({
     queryKey: ['showFlyers'],
     queryFn: async (): Promise<ShowFlyer[]> => {
-      const q = query(collection(db, 'showFlyers'), orderBy('createdAt', 'desc'))
+      const q = query(collection(db, 'showFlyers'), orderBy('eventDate', 'asc'))
       const snapshot = await getDocs(q)
+      const now = new Date()
+      now.setHours(0, 0, 0, 0) // Start of today
 
       return snapshot.docs
         .map((doc) => {
@@ -267,7 +269,13 @@ export function useShowFlyers() {
             ticketURL: data.ticketURL,
           } as ShowFlyer
         })
-        .filter((flyer) => flyer.posterUID)
+        .filter((flyer) => {
+          // Must have a poster
+          if (!flyer.posterUID) return false
+          // Only show upcoming events (today or future)
+          if (flyer.eventDate && flyer.eventDate < now) return false
+          return true
+        })
     },
   })
 }
