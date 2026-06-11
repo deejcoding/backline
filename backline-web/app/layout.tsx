@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   title: 'Backline - NYC Music Community',
   description: 'Connect with musicians, find gigs, and buy/sell gear in NYC.',
   keywords: ['musicians', 'NYC', 'music', 'gigs', 'gear', 'marketplace', 'community'],
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-icon.svg',
+  },
   openGraph: {
     title: 'Backline - NYC Music Community',
     description: 'Connect with musicians, find gigs, and buy/sell gear in NYC.',
