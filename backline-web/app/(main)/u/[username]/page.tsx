@@ -54,7 +54,7 @@ export default function PublicProfilePage() {
         <div className="md:col-span-1">
           {/* Photo & Basic Info */}
           <div className="text-center mb-4">
-            <div className="w-24 h-24 mx-auto rounded-full bg-white/5 overflow-hidden mb-3 border border-white/10">
+            <div className="w-24 h-24 mx-auto bg-white/5 overflow-hidden mb-3 border border-white/10">
               {profile.profilePhotoURL ? (
                 <img src={profile.profilePhotoURL} alt="" className="w-full h-full object-cover" loading="lazy" />
               ) : (

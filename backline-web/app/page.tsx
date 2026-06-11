@@ -192,7 +192,7 @@ export default function HomePage() {
                       href={`/u/${artist.username}`}
                       className="text-center group"
                     >
-                      <div className="w-full aspect-square bg-white/5 overflow-hidden mb-1 rounded-full border border-white/10">
+                      <div className="w-full aspect-square bg-white/5 overflow-hidden mb-1 border border-white/10">
                         {artist.profilePhotoURL ? (
                           <img
                             src={artist.profilePhotoURL}
