@@ -136,12 +136,11 @@ a { color: inherit; text-decoration: none; }
   border-bottom: 1px solid var(--dim);
 }
 .hero h1 {
-  font-family: var(--mono);
-  font-weight: 500;
-  font-size: 42px;
-  line-height: 1.2;
-  letter-spacing: -0.015em;
-  text-transform: uppercase;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 46px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 .hero h1 .accent { color: var(--accent); }
@@ -195,6 +194,25 @@ a { color: inherit; text-decoration: none; }
   line-height: 1;
   display: block;
 }
+
+/* ── Browse on Web button ─────────────────────────────────────────── */
+.webbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border: 1px solid var(--muted);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 8px;
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  transition: border-color 0.15s, background 0.15s;
+}
+.webbtn:hover { border-color: var(--ink); background: var(--soft); }
+.webbtn svg { display: block; flex-shrink: 0; }
 
 /* ── phone frame (real screenshot) ─────────────────────────────────── */
 .phone-frame {
@@ -607,7 +625,7 @@ a { color: inherit; text-decoration: none; }
     padding: 36px 16px 36px;
     gap: 32px;
   }
-  .hero h1 { font-size: 22px; }
+  .hero h1 { font-size: 28px; }
   .hero .actions { gap: 14px; }
   .features { grid-template-columns: 1fr; }
   .features-wrap, .android-wrap { padding: 18px 16px; }
